@@ -92,7 +92,7 @@ static NSMutableDictionary *s_classNameToMangledName;
         RLMSchema *schema = [[RLMSchema alloc] init];
         for (unsigned int i = 0; i < numClasses; i++) {
             // if direct subclass
-            if (class_getSuperclass(classes[i]) == RLMObject.class) {
+            if ([NSStringFromClass(class_getSuperclass(classes[i])) isEqualToString:@"RLMObject"]) {
                 RLMObjectSchema *objectSchema = nil;
 #ifdef REALM_SWIFT
                 // if swift
