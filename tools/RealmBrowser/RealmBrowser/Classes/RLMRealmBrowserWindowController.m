@@ -60,6 +60,18 @@ const NSUInteger kMaxNumberOfArrayEntriesInToolTip = 5;
 
 #pragma mark - Public methods
 
+- (void)hideDetailsTableView
+{
+    [self.detailsTableViewController.view setAlphaValue:0.0];
+}
+
+- (void)showNavigationStateInDetails:(RLMNavigationState *)state
+{
+    [self.detailsTableViewController.view setAlphaValue:1.0];
+    RLMNavigationState *oldState = navigationStack.currentState;
+    [self.detailsTableViewController updateUsingState:state oldState:oldState];
+}
+
 - (void)addNavigationState:(RLMNavigationState *)state fromViewController:(RLMViewController *)controller
 {
     if (!controller.navigationFromHistory) {
@@ -68,6 +80,7 @@ const NSUInteger kMaxNumberOfArrayEntriesInToolTip = 5;
         [navigationStack pushState:state];
         [self updateNavigationButtons];
         
+        
         if (controller == self.tableViewController || controller == nil) {
             [self.outlineViewController updateUsingState:state
                                                 oldState:oldState];
@@ -75,6 +88,7 @@ const NSUInteger kMaxNumberOfArrayEntriesInToolTip = 5;
         
         [self.tableViewController updateUsingState:state
                                           oldState:oldState];
+    
     }
 
     // Searching is not implemented for link arrays yet

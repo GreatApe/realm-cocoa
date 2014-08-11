@@ -29,6 +29,7 @@ extern const NSUInteger kMaxNumberOfArrayEntriesInToolTip;
 @property (nonatomic, weak) RLMDocument *modelDocument;
 @property (nonatomic, strong) IBOutlet RLMTypeOutlineViewController *outlineViewController;
 @property (nonatomic, strong) IBOutlet RLMInstanceTableViewController *tableViewController;
+@property (nonatomic, strong) IBOutlet RLMInstanceTableViewController *detailsTableViewController;
 @property (nonatomic, strong) IBOutlet NSSegmentedControl *navigationButtons;
 @property (nonatomic, strong) IBOutlet NSSearchField *searchField;
 @property (nonatomic, readonly) RLMNavigationState *currentState;
@@ -36,5 +37,9 @@ extern const NSUInteger kMaxNumberOfArrayEntriesInToolTip;
 - (void)addNavigationState:(RLMNavigationState *)state fromViewController:(RLMViewController *)controller;
 
 - (IBAction)userClicksOnNavigationButtons:(NSSegmentedControl *)buttons;
+
+
+- (void)showNavigationStateInDetails:(RLMNavigationState *)state;
+- (void)hideDetailsTableView;
 
 @end

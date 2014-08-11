@@ -130,7 +130,7 @@
 - (void)menuSelectedDeleteRow:(RLMTableLocation)location
 {
     RLMRealm *realm = self.parentWindowController.modelDocument.presentedRealm.realm;
-        
+    
     if (location.row >= self.displayedType.instanceCount || RLMTableLocationRowIsUndefined(location)) {
         return;
     }
@@ -605,6 +605,11 @@
 
 - (void)userClicked:(NSTableView *)sender
 {
+    [self openClickedItemUsingDetailsView:YES];
+}
+
+- (void)openClickedItemUsingDetailsView:(BOOL)useDetailsView
+{
     NSInteger column = self.tableView.clickedColumn;
     NSInteger row = self.tableView.clickedRow;
     
@@ -626,7 +631,12 @@
                         NSUInteger objectIndex = [allInstances indexOfObject:linkedObject];
                         
                         RLMNavigationState *state = [[RLMNavigationState alloc] initWithSelectedType:clazzNode index:objectIndex];
-                        [self.parentWindowController addNavigationState:state fromViewController:self];
+                        if (useDetailsView) {
+                            [self.parentWindowController showNavigationStateInDetails:state];
+                        }
+                        else {
+                            [self.parentWindowController addNavigationState:state fromViewController:self];
+                        }
                         
                         break;
                     }
@@ -639,10 +649,17 @@
             
             if ([propertyValue isKindOfClass:[RLMArray class]]) {
                 RLMArrayNavigationState *state = [[RLMArrayNavigationState alloc] initWithSelectedType:displayedType typeIndex:row property:propertyNode.property arrayIndex:0];
-                [self.parentWindowController addNavigationState:state fromViewController:self];
+                if (useDetailsView) {
+                    [self.parentWindowController showNavigationStateInDetails:state];
+                }
+                else {
+                    [self.parentWindowController addNavigationState:state fromViewController:self];
+                }
             }
         }
         else {
+            [self.parentWindowController hideDetailsTableView];
+            
             if (row != -1) {
                 [self setSelectionIndex:row];
             }
@@ -693,6 +710,9 @@
             [realm commitWriteTransaction];
             [self.tableView reloadData];
         }
+    }
+    else {
+        [self openClickedItemUsingDetailsView:NO];
     }
 }
 
