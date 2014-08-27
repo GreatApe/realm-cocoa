@@ -274,19 +274,7 @@ static NSImage *RLMThumbnailFromImage(NSImage *image, BOOL tiny) {
     return _thumbnail;
 }
 
-
 @end
-
-
-
-
-
-
-
-
-
-
-
 
 
 
