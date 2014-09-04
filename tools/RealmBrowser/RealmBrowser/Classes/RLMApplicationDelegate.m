@@ -65,6 +65,11 @@ const NSUInteger kTopTipDelay = 250;
 
 #pragma mark - Event handling
 
+- (IBAction)searchComputer:(id)sender
+{
+    NSLog(@"searching computer for realm files");
+}
+
 - (IBAction)generatedDemoDatabase:(id)sender
 {
     // Find the document directory using it as default location for realm file.
