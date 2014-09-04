@@ -31,6 +31,8 @@ const NSUInteger kTopTipDelay = 250;
 
 @property (nonatomic) BOOL didLoadFile;
 
+@property (nonatomic) NSMetadataQuery *query;
+
 @end
 
 @implementation RLMApplicationDelegate
@@ -42,6 +44,17 @@ const NSUInteger kTopTipDelay = 250;
     if (!self.didLoadFile) {
         NSInteger openFileIndex = [self.fileMenu indexOfItem:self.openMenuItem];
         [self.fileMenu performActionForItemAtIndex:openFileIndex];
+
+        self.query = [[NSMetadataQuery alloc] init];
+        [self.query setSortDescriptors:@[[[NSSortDescriptor alloc] initWithKey:(id)kMDItemContentModificationDate ascending:NO]]];
+//        [self.query setGroupingAttributes:@[(id)kMDItem, (id)kMDItemFSSize]];
+        
+        NSPredicate *predicate = [NSPredicate predicateWithFormat:@"(kMDItemFSName like[c] %@)", @"*.realm"];
+        [self.query setPredicate:predicate];
+        
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(queryNote:) name:nil object:self.query];
+        
+        [self.query startQuery];
     }
 }
 
@@ -65,9 +78,63 @@ const NSUInteger kTopTipDelay = 250;
 
 #pragma mark - Event handling
 
+- (void)queryNote:(NSNotification *)note {
+    // The NSMetadataQuery will send back a note when updates are happening. By looking at the [note name], we can tell what is happening
+    if ([[note name] isEqualToString:NSMetadataQueryDidStartGatheringNotification]) {
+        // The gathering phase has just started!
+        NSLog(@"Started gathering");
+    } else if ([[note name] isEqualToString:NSMetadataQueryDidFinishGatheringNotification]) {
+        // At this point, the gathering phase will be done. You may recieve an update later on.
+        NSLog(@"Finished gathering: %lu", [self.query resultCount]);
+        for (NSMetadataItem *item in [self.query results]) {
+            NSString *fileName = [item valueForKey:NSMetadataItemFSNameKey];
+            NSDate *date = [item valueForKey:NSMetadataItemFSContentChangeDateKey];
+            
+            NSLog(@"%@: \t\t\t\t %@", fileName, date);
+        }
+        
+    } else if ([[note name] isEqualToString:NSMetadataQueryGatheringProgressNotification]) {
+        // The query is still gatherint results...
+        NSLog(@"Progressing...");
+    } else if ([[note name] isEqualToString:NSMetadataQueryDidUpdateNotification]) {
+        // An update will happen when Spotlight notices that a file as added, removed, or modified that affected the search results.
+        NSLog(@"An update happened.");
+    }
+}
+
 - (IBAction)searchComputer:(id)sender
 {
-    NSLog(@"searching computer for realm files");
+    NSOpenPanel *openPanel = [NSOpenPanel openPanel];
+    
+    openPanel.title = @"Search directory...";
+    openPanel.showsResizeIndicator = YES;
+    openPanel.showsHiddenFiles = NO;
+    openPanel.canChooseFiles = NO;
+    openPanel.canChooseDirectories = YES;
+    openPanel.canCreateDirectories = NO;
+    openPanel.allowsMultipleSelection = NO;
+    
+    [openPanel beginWithCompletionHandler:^(NSInteger result) {
+        if (result == NSOKButton) {
+            NSURL *selection = openPanel.URLs[0];
+            NSString *path = [selection.path stringByResolvingSymlinksInPath];
+            
+            NSDirectoryEnumerator *dirEnum = [[NSFileManager defaultManager] enumeratorAtPath:path];
+            
+            NSMutableArray *files = [NSMutableArray array];
+            
+            NSString *file;
+            while ((file = [dirEnum nextObject])) {
+                if ([[file pathExtension] isEqualToString:@"realm"]) {
+                    NSString *filePath = [path stringByAppendingPathComponent:file];
+                    [files addObject:filePath];
+                }
+            }
+            
+            //            NSLog(@"found files: %@", files);
+        }
+    }];
+    
 }
 
 - (IBAction)generatedDemoDatabase:(id)sender

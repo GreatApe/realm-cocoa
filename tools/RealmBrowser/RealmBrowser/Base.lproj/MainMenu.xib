@@ -86,8 +86,11 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Search computer" id="uKj-Yw-PyP">
+                            <menuItem title="Search computer..." id="uKj-Yw-PyP">
                                 <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="searchComputer:" target="-1" id="uew-dv-1dd"/>
+                                </connections>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="m54-Is-iLE"/>
                             <menuItem title="Close" keyEquivalent="w" id="DVo-aG-piG">
