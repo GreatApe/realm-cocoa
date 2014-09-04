@@ -58,6 +58,19 @@ const NSUInteger kTopTipDelay = 250;
     }
 }
 
+-(BOOL)validateMenuItem:(NSMenuItem *)menuItem
+{
+    if (menuItem.tag == 200) {
+        [menuItem.submenu removeAllItems];
+        for (NSString *fileName in [self.query results]) {
+            [menuItem.submenu addItemWithTitle:[[fileName pathComponents] lastObject] action:nil keyEquivalent:@""];
+            NSLog(@"%@", [[fileName pathComponents] lastObject]);
+        }
+    }
+    
+    return YES;
+}
+
 - (BOOL)application:(NSApplication *)application openFile:(NSString *)filename
 {
     [self openFileAtURL:[NSURL fileURLWithPath:filename]];
