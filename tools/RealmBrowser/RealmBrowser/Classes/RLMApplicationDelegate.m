@@ -26,8 +26,14 @@ NSString *const kRealmFileExension = @"realm";
 
 const NSUInteger kTestDatabaseSizeMultiplicatorFactor = 2000;
 const NSUInteger kTopTipDelay = 250;
+const NSUInteger kMaxFilesInOpenAny = 25;
 
-@interface RLMApplicationDelegate ()
+@interface RLMApplicationDelegate ()<NSMenuDelegate>
+
+@property (nonatomic, weak) IBOutlet NSMenu *fileMenu;
+@property (nonatomic, weak) IBOutlet NSMenuItem *openMenuItem;
+@property (weak) IBOutlet NSMenu *openAnyRealmMenu;
+
 
 @property (nonatomic) BOOL didLoadFile;
 
@@ -58,17 +64,30 @@ const NSUInteger kTopTipDelay = 250;
     }
 }
 
--(BOOL)validateMenuItem:(NSMenuItem *)menuItem
+-(void)menuNeedsUpdate:(NSMenu *)menu
 {
-    if (menuItem.tag == 200) {
-        [menuItem.submenu removeAllItems];
-        for (NSString *fileName in [self.query results]) {
-            [menuItem.submenu addItemWithTitle:[[fileName pathComponents] lastObject] action:nil keyEquivalent:@""];
-            NSLog(@"%@", [[fileName pathComponents] lastObject]);
+    if (menu == self.openAnyRealmMenu) {
+        NSArray *fileItems = [self.query results];
+        NSUInteger numFileItemsToShoww = MIN(kMaxFilesInOpenAny, fileItems.count);
+        NSArray *fileItemsToShow = [fileItems subarrayWithRange:NSMakeRange(0, numFileItemsToShoww)];
+        
+        NSSize imageSize;
+        imageSize.width = [[NSFont menuFontOfSize:0] pointSize];
+        imageSize.height = imageSize.width;
+        NSImage *image = [NSImage imageNamed:@"AppIcon"];
+        image.size = imageSize;
+        
+        for (NSMetadataItem *fileItem in fileItemsToShow) {
+            NSMenuItem *menuItem = [[NSMenuItem alloc] init];
+            menuItem.title = [fileItem valueForAttribute:NSMetadataItemFSNameKey];
+            menuItem.representedObject = [NSURL fileURLWithPath:[fileItem valueForAttribute:NSMetadataItemPathKey]];
+            menuItem.target = self;
+            menuItem.action = @selector(openFileWithMenuItem:);
+            menuItem.image = image;
+            
+            [menu addItem:menuItem];
         }
     }
-    
-    return YES;
 }
 
 - (BOOL)application:(NSApplication *)application openFile:(NSString *)filename
@@ -99,13 +118,6 @@ const NSUInteger kTopTipDelay = 250;
     } else if ([[note name] isEqualToString:NSMetadataQueryDidFinishGatheringNotification]) {
         // At this point, the gathering phase will be done. You may recieve an update later on.
         NSLog(@"Finished gathering: %lu", [self.query resultCount]);
-        for (NSMetadataItem *item in [self.query results]) {
-            NSString *fileName = [item valueForKey:NSMetadataItemFSNameKey];
-            NSDate *date = [item valueForKey:NSMetadataItemFSContentChangeDateKey];
-            
-            NSLog(@"%@: \t\t\t\t %@", fileName, date);
-        }
-        
     } else if ([[note name] isEqualToString:NSMetadataQueryGatheringProgressNotification]) {
         // The query is still gatherint results...
         NSLog(@"Progressing...");
@@ -195,6 +207,11 @@ const NSUInteger kTopTipDelay = 250;
 }
 
 #pragma mark - Private methods
+
+-(void)openFileWithMenuItem:(NSMenuItem *)menuItem
+{
+    [self openFileAtURL:menuItem.representedObject];
+}
 
 -(void)openFileAtURL:(NSURL *)url
 {

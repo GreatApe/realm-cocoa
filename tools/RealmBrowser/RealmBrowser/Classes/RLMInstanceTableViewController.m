@@ -536,7 +536,7 @@ const NSUInteger kMaxNumberOfObjectCharsForTable = 200;
     switch (propertyType) {
         case RLMPropertyTypeInt:
             return @0;
-        
+
         case RLMPropertyTypeFloat:
             return @(0.0f);
 

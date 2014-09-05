@@ -14,6 +14,7 @@
         <customObject id="PLw-ns-0qo" customClass="RLMApplicationDelegate">
             <connections>
                 <outlet property="fileMenu" destination="bib-Uj-vzu" id="xMk-IQ-flg"/>
+                <outlet property="openAnyRealmMenu" destination="zno-IP-ZGS" id="lyJ-XD-2a0"/>
                 <outlet property="openMenuItem" destination="IAo-SY-fd9" id="U7H-mk-W2m"/>
             </connections>
         </customObject>
@@ -88,7 +89,11 @@
                             </menuItem>
                             <menuItem title="Open any Realm" tag="200" id="TTD-8d-BPr">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="Open any Realm" id="zno-IP-ZGS"/>
+                                <menu key="submenu" title="Open any Realm" id="zno-IP-ZGS">
+                                    <connections>
+                                        <outlet property="delegate" destination="PLw-ns-0qo" id="NcP-8h-X2n"/>
+                                    </connections>
+                                </menu>
                             </menuItem>
                             <menuItem isSeparatorItem="YES" id="m54-Is-iLE"/>
                             <menuItem title="Close" keyEquivalent="w" id="DVo-aG-piG">
@@ -97,6 +102,9 @@
                                 </connections>
                             </menuItem>
                         </items>
+                        <connections>
+                            <outlet property="delegate" destination="PLw-ns-0qo" id="xhO-ns-4Zw"/>
+                        </connections>
                     </menu>
                 </menuItem>
                 <menuItem title="Tools" id="QHR-Bb-K4I">
