@@ -112,7 +112,8 @@ const CGFloat kMenuImageSize = 16;
                 
                 NSMenuItem *menuItem = [[NSMenuItem alloc] init];
                 menuItem.title = [metadataItem valueForAttribute:NSMetadataItemFSNameKey];
-                menuItem.representedObject = [NSURL fileURLWithPath:[metadataItem valueForAttribute:NSMetadataItemPathKey]];
+                NSString *filePath = [metadataItem valueForAttribute:NSMetadataItemPathKey];
+                menuItem.representedObject = [NSURL fileURLWithPath:filePath];
                 
                 menuItem.target = self;
                 menuItem.action = @selector(openFileWithMenuItem:);
@@ -120,7 +121,8 @@ const CGFloat kMenuImageSize = 16;
                 menuItem.indentationLevel = 1;
                 
                 NSDate *date = [metadataItem valueForAttribute:NSMetadataItemFSContentChangeDateKey];
-                menuItem.toolTip = [NSString stringWithFormat:@"Modified: %@", [self.dateFormatter stringFromDate:date]];
+                NSString *dateString = [self.dateFormatter stringFromDate:date];
+                menuItem.toolTip = [NSString stringWithFormat:@"%@\n\nModified: %@", filePath, dateString];
                 
                 [menu addItem:menuItem];
             }
