@@ -91,15 +91,9 @@ const CGFloat kMenuImageSize = 16;
 #pragma mark - Event handling
 
 - (void)queryNote:(NSNotification *)note {
-    if ([[note name] isEqualToString:NSMetadataQueryDidStartGatheringNotification]) {
-        NSLog(@"Started gathering");
-    } else if ([[note name] isEqualToString:NSMetadataQueryDidFinishGatheringNotification]) {
-        NSLog(@"Finished gathering: %lu", [self.query resultCount]);
+    if ([[note name] isEqualToString:NSMetadataQueryDidFinishGatheringNotification]) {
         [self updateFileItems];
-    } else if ([[note name] isEqualToString:NSMetadataQueryGatheringProgressNotification]) {
-        NSLog(@"Progressing...");
     } else if ([[note name] isEqualToString:NSMetadataQueryDidUpdateNotification]) {
-        NSLog(@"An update happened.");
         [self updateFileItems];
     }
 }
@@ -158,7 +152,7 @@ const CGFloat kMenuImageSize = 16;
     
     NSString *downloadPrefix = [homeDir stringByAppendingString:@"/Download/"];
     NSDictionary *downloadDict = @{kPrefix : downloadPrefix, kItems : [NSMutableArray arrayWithObject:@"Download"]};
-        
+
     self.groupedFileItems = @[simDict, devDict, desktopDict, downloadDict];
     
     for (NSMetadataItem *fileItem in self.query.results) {
@@ -171,40 +165,6 @@ const CGFloat kMenuImageSize = 16;
             }
         }
     }
-}
-
-- (void)searchComputer:(id)sender
-{
-    NSOpenPanel *openPanel = [NSOpenPanel openPanel];
-    
-    openPanel.title = @"Search directory...";
-    openPanel.showsResizeIndicator = YES;
-    openPanel.showsHiddenFiles = NO;
-    openPanel.canChooseFiles = NO;
-    openPanel.canChooseDirectories = YES;
-    openPanel.canCreateDirectories = NO;
-    openPanel.allowsMultipleSelection = NO;
-    
-    [openPanel beginWithCompletionHandler:^(NSInteger result) {
-        if (result == NSOKButton) {
-            NSURL *selection = openPanel.URLs[0];
-            NSString *path = [selection.path stringByResolvingSymlinksInPath];
-            
-            NSDirectoryEnumerator *dirEnum = [[NSFileManager defaultManager] enumeratorAtPath:path];
-            
-            NSMutableArray *files = [NSMutableArray array];
-            
-            NSString *file;
-            while ((file = [dirEnum nextObject])) {
-                if ([[file pathExtension] isEqualToString:@"realm"]) {
-                    NSString *filePath = [path stringByAppendingPathComponent:file];
-                    [files addObject:filePath];
-                }
-            }
-            
-            //            NSLog(@"found files: %@", files);
-        }
-    }];
 }
 
 - (IBAction)generatedDemoDatabase:(id)sender
