@@ -26,7 +26,8 @@ NSString *const kRealmFileExension = @"realm";
 
 const NSUInteger kTestDatabaseSizeMultiplicatorFactor = 2000;
 const NSUInteger kTopTipDelay = 250;
-const NSUInteger kMaxFilesInOpenAny = 25;
+const NSUInteger kMaxFilesPerCategory = 5;
+const CGFloat kMenuImageSize = 16;
 
 @interface RLMApplicationDelegate ()<NSMenuDelegate>
 
@@ -34,10 +35,12 @@ const NSUInteger kMaxFilesInOpenAny = 25;
 @property (nonatomic, weak) IBOutlet NSMenuItem *openMenuItem;
 @property (weak) IBOutlet NSMenu *openAnyRealmMenu;
 
+@property (nonatomic) NSDateFormatter *dateFormatter;
 
 @property (nonatomic) BOOL didLoadFile;
 
 @property (nonatomic) NSMetadataQuery *query;
+@property (nonatomic) NSArray *groupedFileItems;
 
 @end
 
@@ -53,7 +56,6 @@ const NSUInteger kMaxFilesInOpenAny = 25;
 
         self.query = [[NSMetadataQuery alloc] init];
         [self.query setSortDescriptors:@[[[NSSortDescriptor alloc] initWithKey:(id)kMDItemContentModificationDate ascending:NO]]];
-//        [self.query setGroupingAttributes:@[(id)kMDItem, (id)kMDItemFSSize]];
         
         NSPredicate *predicate = [NSPredicate predicateWithFormat:@"(kMDItemFSName like[c] %@)", @"*.realm"];
         [self.query setPredicate:predicate];
@@ -61,32 +63,10 @@ const NSUInteger kMaxFilesInOpenAny = 25;
         [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(queryNote:) name:nil object:self.query];
         
         [self.query startQuery];
-    }
-}
-
--(void)menuNeedsUpdate:(NSMenu *)menu
-{
-    if (menu == self.openAnyRealmMenu) {
-        NSArray *fileItems = [self.query results];
-        NSUInteger numFileItemsToShoww = MIN(kMaxFilesInOpenAny, fileItems.count);
-        NSArray *fileItemsToShow = [fileItems subarrayWithRange:NSMakeRange(0, numFileItemsToShoww)];
         
-        NSSize imageSize;
-        imageSize.width = [[NSFont menuFontOfSize:0] pointSize];
-        imageSize.height = imageSize.width;
-        NSImage *image = [NSImage imageNamed:@"AppIcon"];
-        image.size = imageSize;
-        
-        for (NSMetadataItem *fileItem in fileItemsToShow) {
-            NSMenuItem *menuItem = [[NSMenuItem alloc] init];
-            menuItem.title = [fileItem valueForAttribute:NSMetadataItemFSNameKey];
-            menuItem.representedObject = [NSURL fileURLWithPath:[fileItem valueForAttribute:NSMetadataItemPathKey]];
-            menuItem.target = self;
-            menuItem.action = @selector(openFileWithMenuItem:);
-            menuItem.image = image;
-            
-            [menu addItem:menuItem];
-        }
+        self.dateFormatter = [[NSDateFormatter alloc] init];
+        self.dateFormatter.dateStyle = NSDateFormatterMediumStyle;
+        self.dateFormatter.timeStyle = NSDateFormatterShortStyle;
     }
 }
 
@@ -111,23 +91,89 @@ const NSUInteger kMaxFilesInOpenAny = 25;
 #pragma mark - Event handling
 
 - (void)queryNote:(NSNotification *)note {
-    // The NSMetadataQuery will send back a note when updates are happening. By looking at the [note name], we can tell what is happening
     if ([[note name] isEqualToString:NSMetadataQueryDidStartGatheringNotification]) {
-        // The gathering phase has just started!
         NSLog(@"Started gathering");
     } else if ([[note name] isEqualToString:NSMetadataQueryDidFinishGatheringNotification]) {
-        // At this point, the gathering phase will be done. You may recieve an update later on.
         NSLog(@"Finished gathering: %lu", [self.query resultCount]);
+        [self updateFileItems];
     } else if ([[note name] isEqualToString:NSMetadataQueryGatheringProgressNotification]) {
-        // The query is still gatherint results...
         NSLog(@"Progressing...");
     } else if ([[note name] isEqualToString:NSMetadataQueryDidUpdateNotification]) {
-        // An update will happen when Spotlight notices that a file as added, removed, or modified that affected the search results.
         NSLog(@"An update happened.");
+        [self updateFileItems];
     }
 }
 
-- (IBAction)searchComputer:(id)sender
+-(void)menuNeedsUpdate:(NSMenu *)menu
+{
+    if (menu == self.openAnyRealmMenu) {
+        NSImage *image = [NSImage imageNamed:@"AppIcon"];
+        image.size = NSMakeSize(kMenuImageSize, kMenuImageSize);
+        
+        NSArray *allItems = [self.groupedFileItems valueForKeyPath: @"Items.@unionOfArrays.self"];
+        
+        for (id item in allItems) {
+            if ([item isMemberOfClass:[NSMetadataItem class]]) {
+                NSMetadataItem *metadataItem = (NSMetadataItem *)item;
+                
+                NSMenuItem *menuItem = [[NSMenuItem alloc] init];
+                menuItem.title = [metadataItem valueForAttribute:NSMetadataItemFSNameKey];
+                menuItem.representedObject = [NSURL fileURLWithPath:[metadataItem valueForAttribute:NSMetadataItemPathKey]];
+                
+                menuItem.target = self;
+                menuItem.action = @selector(openFileWithMenuItem:);
+                menuItem.image = image;
+                menuItem.indentationLevel = 1;
+                
+                NSDate *date = [metadataItem valueForAttribute:NSMetadataItemFSContentChangeDateKey];
+                menuItem.toolTip = [NSString stringWithFormat:@"Modified: %@", [self.dateFormatter stringFromDate:date]];
+                
+                [menu addItem:menuItem];
+            }
+            else if ([item isKindOfClass:[NSString class]]) {
+                NSMenuItem *categoryItem = [[NSMenuItem alloc] init];
+                categoryItem.title = (NSString *)item;
+                [categoryItem setEnabled:NO];
+                [menu addItem:categoryItem];
+            }
+        }
+    }
+}
+
+-(void)updateFileItems
+{
+    NSString *homeDir = NSHomeDirectory();
+    
+    NSString *kPrefix = @"Prefix";
+    NSString *kItems = @"Items";
+    
+    NSString *simPrefix = [homeDir stringByAppendingString:@"/Library/Application Support/iPhone Simulator/"];
+    NSDictionary *simDict = @{kPrefix : simPrefix, kItems : [NSMutableArray arrayWithObject:@"iPhone Simulator"]};
+    
+    NSString *devPrefix = [homeDir stringByAppendingString:@"/Developer/"];
+    NSDictionary *devDict = @{kPrefix : devPrefix, kItems : [NSMutableArray arrayWithObject:@"Developer"]};
+    
+    NSString *desktopPrefix = [homeDir stringByAppendingString:@"/Desktop/"];
+    NSDictionary *desktopDict = @{kPrefix : desktopPrefix, kItems : [NSMutableArray arrayWithObject:@"Desktop"]};
+    
+    NSString *downloadPrefix = [homeDir stringByAppendingString:@"/Download/"];
+    NSDictionary *downloadDict = @{kPrefix : downloadPrefix, kItems : [NSMutableArray arrayWithObject:@"Download"]};
+        
+    self.groupedFileItems = @[simDict, devDict, desktopDict, downloadDict];
+    
+    for (NSMetadataItem *fileItem in self.query.results) {
+        for (NSDictionary *dict in self.groupedFileItems) {
+            if ([[fileItem valueForAttribute:NSMetadataItemPathKey] hasPrefix:dict[kPrefix]]) {
+                NSMutableArray *items = dict[kItems];
+                if (items.count <= kMaxFilesPerCategory) {
+                    [items addObject:fileItem];
+                }
+            }
+        }
+    }
+}
+
+- (void)searchComputer:(id)sender
 {
     NSOpenPanel *openPanel = [NSOpenPanel openPanel];
     
@@ -159,7 +205,6 @@ const NSUInteger kMaxFilesInOpenAny = 25;
             //            NSLog(@"found files: %@", files);
         }
     }];
-    
 }
 
 - (IBAction)generatedDemoDatabase:(id)sender

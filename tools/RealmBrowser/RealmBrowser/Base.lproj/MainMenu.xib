@@ -87,9 +87,9 @@
                                     </items>
                                 </menu>
                             </menuItem>
-                            <menuItem title="Open any Realm" tag="200" id="TTD-8d-BPr">
+                            <menuItem title="Open Common" tag="200" id="TTD-8d-BPr">
                                 <modifierMask key="keyEquivalentModifierMask"/>
-                                <menu key="submenu" title="Open any Realm" id="zno-IP-ZGS">
+                                <menu key="submenu" title="Open Common" id="zno-IP-ZGS">
                                     <connections>
                                         <outlet property="delegate" destination="PLw-ns-0qo" id="NcP-8h-X2n"/>
                                     </connections>
