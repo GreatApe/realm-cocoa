@@ -101,6 +101,7 @@ const CGFloat kMenuImageSize = 16;
 -(void)menuNeedsUpdate:(NSMenu *)menu
 {
     if (menu == self.openAnyRealmMenu) {
+        [menu removeAllItems];
         NSImage *image = [NSImage imageNamed:@"AppIcon"];
         image.size = NSMakeSize(kMenuImageSize, kMenuImageSize);
         
