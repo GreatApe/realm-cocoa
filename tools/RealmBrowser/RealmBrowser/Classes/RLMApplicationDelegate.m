@@ -26,7 +26,7 @@ NSString *const kRealmFileExension = @"realm";
 
 const NSUInteger kTestDatabaseSizeMultiplicatorFactor = 2000;
 const NSUInteger kTopTipDelay = 250;
-const NSUInteger kMaxFilesPerCategory = 5;
+const NSUInteger kMaxFilesPerCategory = 7;
 const CGFloat kMenuImageSize = 16;
 
 @interface RLMApplicationDelegate ()<NSMenuDelegate>
@@ -102,37 +102,55 @@ const CGFloat kMenuImageSize = 16;
 {
     if (menu == self.openAnyRealmMenu) {
         [menu removeAllItems];
-        NSImage *image = [NSImage imageNamed:@"AppIcon"];
-        image.size = NSMakeSize(kMenuImageSize, kMenuImageSize);
-        
-        NSArray *allItems = [self.groupedFileItems valueForKeyPath: @"Items.@unionOfArrays.self"];
-        
-        for (id item in allItems) {
-            if ([item isMemberOfClass:[NSMetadataItem class]]) {
-                NSMetadataItem *metadataItem = (NSMetadataItem *)item;
-                
-                NSMenuItem *menuItem = [[NSMenuItem alloc] init];
-                menuItem.title = [metadataItem valueForAttribute:NSMetadataItemFSNameKey];
-                NSString *filePath = [metadataItem valueForAttribute:NSMetadataItemPathKey];
-                menuItem.representedObject = [NSURL fileURLWithPath:filePath];
-                
-                menuItem.target = self;
-                menuItem.action = @selector(openFileWithMenuItem:);
-                menuItem.image = image;
-                menuItem.indentationLevel = 1;
-                
-                NSDate *date = [metadataItem valueForAttribute:NSMetadataItemFSContentChangeDateKey];
-                NSString *dateString = [self.dateFormatter stringFromDate:date];
-                menuItem.toolTip = [NSString stringWithFormat:@"%@\n\nModified: %@", filePath, dateString];
-                
-                [menu addItem:menuItem];
-            }
-            else if ([item isKindOfClass:[NSString class]]) {
-                NSMenuItem *categoryItem = [[NSMenuItem alloc] init];
-                categoryItem.title = (NSString *)item;
-                [categoryItem setEnabled:NO];
-                [menu addItem:categoryItem];
-            }
+        NSArray *allItems = [self.groupedFileItems valueForKeyPath:@"Items.@unionOfArrays.self"];
+        [self updateMenu:menu withItems:allItems indented:YES];
+    }
+}
+
+-(void)updateMenu:(NSMenu *)menu withItems:(NSArray *)items indented:(BOOL)indented
+{
+    NSImage *image = [NSImage imageNamed:@"AppIcon"];
+    image.size = NSMakeSize(kMenuImageSize, kMenuImageSize);
+
+    for (id item in items) {
+        // Category heading, create disabled menu item with corresponding name
+        if ([item isKindOfClass:[NSString class]]) {
+            NSMenuItem *categoryItem = [[NSMenuItem alloc] init];
+            categoryItem.title = (NSString *)item;
+            [categoryItem setEnabled:NO];
+            [menu addItem:categoryItem];
+        }
+        // Array of items, create cubmenu and set them up there by calling this method recursively
+        else if ([item isKindOfClass:[NSArray class]]) {
+            NSMenuItem *submenuItem = [[NSMenuItem alloc] init];
+            submenuItem.title = @"More";
+            submenuItem.indentationLevel = 1;
+            [menu addItem:submenuItem];
+            
+            NSMenu *submenu = [[NSMenu alloc] initWithTitle:@"More"];
+            NSArray *subitems = item;
+            [self updateMenu:submenu withItems:subitems indented:NO];
+            [menu setSubmenu:submenu forItem:submenuItem];
+        }
+        // Normal file item, just create a menu item for it and wire it up
+        else if ([item isMemberOfClass:[NSMetadataItem class]]) {
+            NSMetadataItem *metadataItem = (NSMetadataItem *)item;
+            
+            NSMenuItem *menuItem = [[NSMenuItem alloc] init];
+            menuItem.title = [metadataItem valueForAttribute:NSMetadataItemFSNameKey];
+            NSString *filePath = [metadataItem valueForAttribute:NSMetadataItemPathKey];
+            menuItem.representedObject = [NSURL fileURLWithPath:filePath];
+            
+            menuItem.target = self;
+            menuItem.action = @selector(openFileWithMenuItem:);
+            menuItem.image = image;
+            menuItem.indentationLevel = indented ? 1 : 0;
+            
+            NSDate *date = [metadataItem valueForAttribute:NSMetadataItemFSContentChangeDateKey];
+            NSString *dateString = [self.dateFormatter stringFromDate:date];
+            menuItem.toolTip = [NSString stringWithFormat:@"%@\n\nModified: %@", filePath, dateString];
+            
+            [menu addItem:menuItem];
         }
     }
 }
@@ -156,15 +174,37 @@ const CGFloat kMenuImageSize = 16;
     NSString *downloadPrefix = [homeDir stringByAppendingString:@"/Download/"];
     NSDictionary *downloadDict = @{kPrefix : downloadPrefix, kItems : [NSMutableArray arrayWithObject:@"Download"]};
 
-    self.groupedFileItems = @[simDict, devDict, desktopDict, downloadDict];
+    NSString *documentsPrefix = [homeDir stringByAppendingString:@"/Documents/"];
+    NSDictionary *documentsdDict = @{kPrefix : documentsPrefix, kItems : [NSMutableArray arrayWithObject:@"Documents"]};
+
+    NSString *allPrefix = @"/";
+    NSDictionary *otherDict = @{kPrefix : allPrefix, kItems : [NSMutableArray arrayWithObject:@"Other"]};
+
+    // Create array of dictionaries, each corresponding to search folders
+    self.groupedFileItems = @[simDict, devDict, desktopDict, documentsdDict, downloadDict, otherDict];
     
+    // Iterate through the all
     for (NSMetadataItem *fileItem in self.query.results) {
+        //Iterate through the different prefixes and add item to corresponding array within dictionary
         for (NSDictionary *dict in self.groupedFileItems) {
             if ([[fileItem valueForAttribute:NSMetadataItemPathKey] hasPrefix:dict[kPrefix]]) {
                 NSMutableArray *items = dict[kItems];
-                if (items.count <= kMaxFilesPerCategory) {
+                // The first few items are just added
+                if (items.count - 1 < kMaxFilesPerCategory) {
                     [items addObject:fileItem];
                 }
+                // When we reach the maximum number of files to show in the overview we create an array...
+                else if (items.count - 1 == kMaxFilesPerCategory) {
+                    NSMutableArray *moreFileItems = [NSMutableArray arrayWithObject:fileItem];
+                    [items addObject:moreFileItems];
+                }
+                // ... and henceforth we put fileItems here instead - the menu method will create a submenu.
+                else {
+                    NSMutableArray *moreFileItems = [items lastObject];
+                    [moreFileItems addObject:fileItem];
+                }
+                // We have already found a matching prefix, we can stop considering this item
+                break;
             }
         }
     }
