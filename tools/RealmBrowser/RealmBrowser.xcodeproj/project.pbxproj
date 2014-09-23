@@ -14,6 +14,8 @@
 		2249D9B219A62EBD00A31104 /* RLMTableColumn.m in Sources */ = {isa = PBXBuildFile; fileRef = 2249D9B119A62EBD00A31104 /* RLMTableColumn.m */; };
 		22565D6719C1BCF400C8C8EC /* RLMLinkTableCellView.m in Sources */ = {isa = PBXBuildFile; fileRef = 22565D6619C1BCF400C8C8EC /* RLMLinkTableCellView.m */; };
 		225AAFEC19C09E520023B595 /* RLMTextField.m in Sources */ = {isa = PBXBuildFile; fileRef = 225AAFEB19C09E520023B595 /* RLMTextField.m */; };
+		22A55FF519D1C35A009178BC /* Splash.xib in Resources */ = {isa = PBXBuildFile; fileRef = 22A55FF319D1C35A009178BC /* Splash.xib */; };
+		22A55FFD19D1CC92009178BC /* RLMSplashWindowController.m in Sources */ = {isa = PBXBuildFile; fileRef = 22A55FFB19D1CC92009178BC /* RLMSplashWindowController.m */; };
 		22D28EA71993AAAB00497FD3 /* RLMNumberTableCellView.m in Sources */ = {isa = PBXBuildFile; fileRef = 22D28EA61993AAAB00497FD3 /* RLMNumberTableCellView.m */; };
 		22E4737219924CF700EEF7C9 /* RLMBasicTableCellView.m in Sources */ = {isa = PBXBuildFile; fileRef = 22E4737119924CF700EEF7C9 /* RLMBasicTableCellView.m */; };
 		22E473791992562400EEF7C9 /* RLMBoolTableCellView.m in Sources */ = {isa = PBXBuildFile; fileRef = 22E473781992562400EEF7C9 /* RLMBoolTableCellView.m */; };
@@ -127,6 +129,9 @@
 		22565D6619C1BCF400C8C8EC /* RLMLinkTableCellView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RLMLinkTableCellView.m; path = Classes/RLMLinkTableCellView.m; sourceTree = "<group>"; };
 		225AAFEA19C09E520023B595 /* RLMTextField.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RLMTextField.h; path = Classes/RLMTextField.h; sourceTree = "<group>"; };
 		225AAFEB19C09E520023B595 /* RLMTextField.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RLMTextField.m; path = Classes/RLMTextField.m; sourceTree = "<group>"; };
+		22A55FF419D1C35A009178BC /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/Splash.xib; sourceTree = "<group>"; };
+		22A55FFA19D1CC92009178BC /* RLMSplashWindowController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RLMSplashWindowController.h; path = Classes/RLMSplashWindowController.h; sourceTree = "<group>"; };
+		22A55FFB19D1CC92009178BC /* RLMSplashWindowController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RLMSplashWindowController.m; path = Classes/RLMSplashWindowController.m; sourceTree = "<group>"; };
 		22D28EA51993AAAB00497FD3 /* RLMNumberTableCellView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RLMNumberTableCellView.h; path = Classes/RLMNumberTableCellView.h; sourceTree = "<group>"; };
 		22D28EA61993AAAB00497FD3 /* RLMNumberTableCellView.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RLMNumberTableCellView.m; path = Classes/RLMNumberTableCellView.m; sourceTree = "<group>"; };
 		22E4737019924CF700EEF7C9 /* RLMBasicTableCellView.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RLMBasicTableCellView.h; path = Classes/RLMBasicTableCellView.h; sourceTree = "<group>"; };
@@ -254,6 +259,8 @@
 		8413B8FF196D2F4E0012EBE8 /* Controllers */ = {
 			isa = PBXGroup;
 			children = (
+				22A55FFA19D1CC92009178BC /* RLMSplashWindowController.h */,
+				22A55FFB19D1CC92009178BC /* RLMSplashWindowController.m */,
 				84754ABC193CA4600093604E /* RLMRealmBrowserWindowController.h */,
 				84754ABD193CA4600093604E /* RLMRealmBrowserWindowController.m */,
 				8474E2B219544D8000BCA755 /* RLMTypeOutlineViewController.h */,
@@ -422,6 +429,7 @@
 				840F97C1192B7DD4006B591E /* Classes */,
 				84E0F9641921F3B900D6CA14 /* RLMDocument.xib */,
 				84E0F9671921F3B900D6CA14 /* MainMenu.xib */,
+				22A55FF319D1C35A009178BC /* Splash.xib */,
 				84E0F96A1921F3B900D6CA14 /* Images.xcassets */,
 				84BCA5FE1951BC99008FC850 /* Resources */,
 				84E0F9561921F3B900D6CA14 /* Supporting Files */,
@@ -588,6 +596,7 @@
 			files = (
 				84E0F95A1921F3B900D6CA14 /* InfoPlist.strings in Resources */,
 				84E0F96B1921F3B900D6CA14 /* Images.xcassets in Resources */,
+				22A55FF519D1C35A009178BC /* Splash.xib in Resources */,
 				84BCA6041951BD07008FC850 /* realm.icns in Resources */,
 				84E0F9601921F3B900D6CA14 /* Credits.rtf in Resources */,
 				84E0F9661921F3B900D6CA14 /* RLMDocument.xib in Resources */,
@@ -613,6 +622,7 @@
 				840F97C0192B7DCE006B591E /* RLMDocument.m in Sources */,
 				84AA41B01949CD7700A50F03 /* RLMArrayNode.m in Sources */,
 				22E4737219924CF700EEF7C9 /* RLMBasicTableCellView.m in Sources */,
+				22A55FFD19D1CC92009178BC /* RLMSplashWindowController.m in Sources */,
 				22E473791992562400EEF7C9 /* RLMBoolTableCellView.m in Sources */,
 				8474E2BD195452BE00BCA755 /* RLMInstanceTableViewController.m in Sources */,
 				84754ABE193CA4600093604E /* RLMRealmBrowserWindowController.m in Sources */,
@@ -667,6 +677,14 @@
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
+		22A55FF319D1C35A009178BC /* Splash.xib */ = {
+			isa = PBXVariantGroup;
+			children = (
+				22A55FF419D1C35A009178BC /* Base */,
+			);
+			name = Splash.xib;
+			sourceTree = "<group>";
+		};
 		84E0F9581921F3B900D6CA14 /* InfoPlist.strings */ = {
 			isa = PBXVariantGroup;
 			children = (
