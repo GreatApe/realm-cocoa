@@ -8,16 +8,52 @@
 
 #import "RLMSplashWindowController.h"
 
-@interface RLMSplashWindowController ()
+@implementation RLMSplashFileItem
+
+- (instancetype)initWithMetaDataItem
+{
+    self = [super init];
+    if (self) {
+
+    }
+    return self;
+}
+
+@end
+
+
+@interface RLMSplashWindowController () <NSTableViewDelegate, NSTableViewDataSource>
+
+@property (weak) IBOutlet NSTableView *tableView;
+
+@property (nonatomic) NSArray *fileItems;
 
 @end
 
 @implementation RLMSplashWindowController
+
+-(void)awakeFromNib
+{
+    [super awakeFromNib];
+    NSLog(@"awake!");
+}
 
 - (void)windowDidLoad {
     [super windowDidLoad];
     
     // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
 }
+
+-(void)setupWithFileItems:(NSArray *)fileItems
+{
+    self.fileItems = fileItems;
+    NSLog(@"setupWithFileItems");
+}
+
+-(NSInteger)numberOfRowsInTableView:(NSTableView *)tableView
+{
+    return 0;
+}
+
 
 @end

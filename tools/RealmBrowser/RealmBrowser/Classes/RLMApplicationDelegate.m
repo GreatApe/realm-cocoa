@@ -20,8 +20,9 @@
 
 #import <Realm/Realm.h>
 #import "RLMTestDataGenerator.h"
-
 #import "TestClasses.h"
+
+#import "RLMSplashWindowController.h"
 
 const NSUInteger kTopTipDelay = 250;
 const NSUInteger kMaxFilesPerCategory = 7;
@@ -47,7 +48,10 @@ NSString *const kDocumentsFolder = @"/Documents";
 @property (nonatomic, strong) NSMetadataQuery *realmQuery;
 @property (nonatomic, strong) NSMetadataQuery *appQuery;
 @property (nonatomic, strong) NSMetadataQuery *projQuery;
-@property (nonatomic, strong) NSArray *groupedFileItems;
+
+@property (nonatomic, strong) RLMSplashWindowController *splashController;
+
+@property (nonatomic, strong) NSArray *allItems;
 
 @end
 
@@ -58,29 +62,33 @@ NSString *const kDocumentsFolder = @"/Documents";
     [[NSUserDefaults standardUserDefaults] setObject:@(kTopTipDelay) forKey:@"NSInitialToolTipDelay"];
     
     if (!self.didLoadFile) {
-        NSInteger openFileIndex = [self.fileMenu indexOfItem:self.openMenuItem];
-        [self.fileMenu performActionForItemAtIndex:openFileIndex];
+//        NSInteger openFileIndex = [self.fileMenu indexOfItem:self.openMenuItem];
+//        [self.fileMenu performActionForItemAtIndex:openFileIndex];
         
         self.realmQuery = [[NSMetadataQuery alloc] init];
         [self.realmQuery setSortDescriptors:@[[[NSSortDescriptor alloc] initWithKey:(id)kMDItemContentModificationDate ascending:NO]]];
         NSPredicate *realmPredicate = [NSPredicate predicateWithFormat:@"kMDItemFSName like[c] '*.realm'"];
         self.realmQuery.predicate = realmPredicate;
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(realmQueryNote:) name:nil object:self.realmQuery];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(queryNote:) name:nil object:self.realmQuery];
         [self.realmQuery startQuery];
+        NSLog(@"start   appQuery");
         
         self.appQuery = [[NSMetadataQuery alloc] init];
         NSPredicate *appPredicate = [NSPredicate predicateWithFormat:@"kMDItemFSName like[c] '*.app'"];
         self.appQuery.predicate = appPredicate;
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(otherQueryNote:) name:nil object:self.appQuery];
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(queryNote:) name:nil object:self.appQuery];
 
         self.projQuery = [[NSMetadataQuery alloc] init];
         NSPredicate *projPredicate = [NSPredicate predicateWithFormat:@"kMDItemFSName like[c] '*.xcodeproj'"];
         self.projQuery.predicate = projPredicate;
-        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(otherQueryNote:) name:nil object:self.projQuery];
-
+        [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(queryNote:) name:nil object:self.projQuery];
+        
         self.dateFormatter = [[NSDateFormatter alloc] init];
         self.dateFormatter.dateStyle = NSDateFormatterMediumStyle;
         self.dateFormatter.timeStyle = NSDateFormatterShortStyle;
+        
+        self.splashController = [[RLMSplashWindowController alloc] initWithWindowNibName:@"Splash"];
+        [self.splashController showWindow:self];
     }
 }
 
@@ -88,7 +96,7 @@ NSString *const kDocumentsFolder = @"/Documents";
 {
     [self openFileAtURL:[NSURL fileURLWithPath:filename]];
     self.didLoadFile = YES;
-
+    
     return YES;
 }
 
@@ -104,24 +112,26 @@ NSString *const kDocumentsFolder = @"/Documents";
 
 #pragma mark - Event handling
 
-- (void)realmQueryNote:(NSNotification *)notification {
-    if ([[notification name] isEqualToString:NSMetadataQueryDidFinishGatheringNotification]) {
-        [self updateFileItems];
-        [self.appQuery startQuery];
-        [self.projQuery startQuery];
-    }
-    else if ([[notification name] isEqualToString:NSMetadataQueryDidUpdateNotification]) {
-        [self updateFileItems];
-        [self.appQuery startQuery];
-    }
-}
-
-- (void)otherQueryNote:(NSNotification *)notification {
-    if ([[notification name] isEqualToString:NSMetadataQueryDidFinishGatheringNotification]) {
-        [self updateFileItems];
-    }
-    else if ([[notification name] isEqualToString:NSMetadataQueryDidUpdateNotification]) {
-        [self updateFileItems];
+- (void)queryNote:(NSNotification *)notification {
+    if ([[notification name] isEqualToString:NSMetadataQueryDidFinishGatheringNotification] ||
+        [[notification name] isEqualToString:NSMetadataQueryDidUpdateNotification]) {
+        
+        NSMetadataQuery *query = notification.object;
+        if (query == self.realmQuery) {
+            NSLog(@"finshed realmQuery");
+            NSLog(@"start   appQuery");
+            [self.appQuery startQuery];
+        }
+        else if (query == self.appQuery) {
+            NSLog(@"finshed appQuery");
+            NSLog(@"start   projQuery");
+            [self.projQuery startQuery];
+        }
+        else if (query == self.projQuery) {
+            NSLog(@"finshed projQuery");
+            NSLog(@"updateFileItems");
+            [self updateFileItems];
+        }
     }
 }
 
@@ -129,8 +139,7 @@ NSString *const kDocumentsFolder = @"/Documents";
 {
     if (menu == self.openAnyRealmMenu) {
         [menu removeAllItems];
-        NSArray *allItems = [self.groupedFileItems valueForKeyPath:@"Items.@unionOfArrays.self"];
-        [self updateMenu:menu withItems:allItems indented:YES];
+        [self updateMenu:menu withItems:self.allItems indented:YES];
     }
 }
 
@@ -261,12 +270,12 @@ NSString *const kDocumentsFolder = @"/Documents";
     NSDictionary *otherDict = @{kPrefix : allPrefix, kItems : [NSMutableArray arrayWithObject:@"Other"]};
     
     // Create array of dictionaries, each corresponding to search folders
-    self.groupedFileItems = @[simDict, devDict, desktopDict, documentsdDict, downloadDict, otherDict];
+    NSArray *groupedFileItems = @[simDict, devDict, desktopDict, documentsdDict, downloadDict, otherDict];
     
     // Iterate through all search results
     for (NSMetadataItem *fileItem in self.realmQuery.results) {
         // Iterate through the different prefixes and add item to corresponding array within dictionary
-        for (NSDictionary *dict in self.groupedFileItems) {
+        for (NSDictionary *dict in groupedFileItems) {
             if ([[fileItem valueForAttribute:NSMetadataItemPathKey] hasPrefix:dict[kPrefix]]) {
                 NSMutableArray *items = dict[kItems];
                 // The first few items are just added
@@ -288,6 +297,9 @@ NSString *const kDocumentsFolder = @"/Documents";
             }
         }
     }
+    
+    self.allItems = [groupedFileItems valueForKeyPath:@"Items.@unionOfArrays.self"];
+    [self.splashController setupWithFileItems:self.allItems];
 }
 
 - (IBAction)generatedDemoDatabase:(id)sender
