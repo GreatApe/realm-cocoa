@@ -7,16 +7,36 @@
 //
 
 #import "RLMSplashWindowController.h"
+#import "RLMSplashTableCellView.h"
 
 @implementation RLMSplashFileItem
 
-- (instancetype)initWithMetaDataItem
+-(NSString *)description
 {
-    self = [super init];
-    if (self) {
+    return [NSString stringWithFormat:@"%@ %@", self.name, self.path ?: @""];
+}
 
++ (instancetype)splashItemForCategory:(NSString *)category
+{
+    RLMSplashFileItem *item = [[self alloc] init];
+    if (item) {
+        item.isCategoryName = YES;
+        item.name = category;
     }
-    return self;
+    return item;
+}
+
++ (instancetype)splashItemWithMetaData:(NSMetadataItem *)metaDataItem
+{
+    RLMSplashFileItem *item = [[self alloc] init];
+    if (item) {
+        item.isCategoryName = NO;
+        item.path = [metaDataItem valueForAttribute:NSMetadataItemPathKey];
+        item.name = [item.path lastPathComponent];
+        
+        item.modificationDate = [metaDataItem valueForAttribute:NSMetadataItemFSContentChangeDateKey];
+    }
+    return item;
 }
 
 @end
@@ -26,9 +46,8 @@
 
 @property (weak) IBOutlet NSTableView *tableView;
 
-@property (nonatomic) NSArray *fileItems;
-
 @end
+
 
 @implementation RLMSplashWindowController
 
@@ -44,16 +63,48 @@
     // Implement this method to handle any initialization after your window controller's window has been loaded from its nib file.
 }
 
--(void)setupWithFileItems:(NSArray *)fileItems
+-(void)setFileItems:(NSArray *)fileItems
 {
-    self.fileItems = fileItems;
-    NSLog(@"setupWithFileItems");
+    _fileItems = fileItems;
+    NSLog(@"----- reloadData! ------");
+    NSLog(@"fileItems:\n%@", fileItems);
+
+    [self.tableView reloadData];
 }
 
 -(NSInteger)numberOfRowsInTableView:(NSTableView *)tableView
 {
-    return 0;
+    return self.fileItems.count;
 }
+
+- (BOOL)tableView:(NSTableView *)tableView isGroupRow:(NSInteger)row
+{
+    RLMSplashFileItem *item = self.fileItems[row];
+    return item.isCategoryName;
+}
+
+- (CGFloat)tableView:(NSTableView *)tableView heightOfRow:(NSInteger)row {
+    RLMSplashFileItem *item = self.fileItems[row];
+    return item.isCategoryName ? 20.0 : 50.0;
+}
+
+-(NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)tableColumn row:(NSInteger)row
+{
+    RLMSplashFileItem *item = self.fileItems[row];
+    
+    if (item.isCategoryName) {
+        NSTableCellView *cellView = [tableView makeViewWithIdentifier:@"GroupCell" owner:self];
+        cellView.textField.stringValue = item.name;
+        return cellView;
+    }
+    else {
+        RLMSplashTableCellView *cellView = [tableView makeViewWithIdentifier:@"SplashCell" owner:self];
+        cellView.textField.stringValue = item.name;
+        cellView.metaInfo.stringValue = item.metaData ?: item.path ?: @" - CATEGORY -";
+        return cellView;
+    }
+}
+
 
 
 @end

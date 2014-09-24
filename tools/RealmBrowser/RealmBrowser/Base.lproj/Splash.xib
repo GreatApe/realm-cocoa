@@ -16,7 +16,7 @@
             <windowStyleMask key="styleMask" closable="YES" miniaturizable="YES" resizable="YES"/>
             <windowPositionMask key="initialPositionMask" leftStrut="YES" rightStrut="YES" topStrut="YES" bottomStrut="YES"/>
             <rect key="contentRect" x="196" y="240" width="621" height="433"/>
-            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1440"/>
+            <rect key="screenRect" x="0.0" y="0.0" width="2560" height="1418"/>
             <view key="contentView" id="EiT-Mj-1SZ">
                 <rect key="frame" x="0.0" y="0.0" width="621" height="433"/>
                 <autoresizingMask key="autoresizingMask"/>
@@ -55,7 +55,7 @@
                                                             <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="realm" id="6jf-qr-yxf"/>
                                                         </imageView>
                                                         <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" fixedFrame="YES" allowsExpansionToolTips="YES" translatesAutoresizingMaskIntoConstraints="NO" id="pse-uo-Iqf">
-                                                            <rect key="frame" x="52" y="29" width="105" height="17"/>
+                                                            <rect key="frame" x="52" y="29" width="439" height="17"/>
                                                             <textFieldCell key="cell" lineBreakMode="truncatingTail" sendsActionOnEndEditing="YES" title="Default" id="pqa-Jh-U1j">
                                                                 <font key="font" metaFont="system"/>
                                                                 <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
@@ -63,10 +63,10 @@
                                                             </textFieldCell>
                                                         </textField>
                                                         <textField horizontalHuggingPriority="251" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="fEg-IU-HYP" userLabel="MetaInfo">
-                                                            <rect key="frame" x="52" y="4" width="84" height="17"/>
+                                                            <rect key="frame" x="52" y="4" width="439" height="17"/>
                                                             <textFieldCell key="cell" scrollable="YES" lineBreakMode="clipping" sendsActionOnEndEditing="YES" title="ProjectName" id="FFB-PM-8de">
                                                                 <font key="font" metaFont="system"/>
-                                                                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="textColor" name="controlShadowColor" catalog="System" colorSpace="catalog"/>
                                                                 <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
                                                             </textFieldCell>
                                                         </textField>
@@ -82,6 +82,23 @@
                                                         <outlet property="imageView" destination="ths-ug-D8o" id="1GT-JA-3D1"/>
                                                         <outlet property="metaInfo" destination="fEg-IU-HYP" id="zr7-8R-SED"/>
                                                         <outlet property="textField" destination="pse-uo-Iqf" id="A7d-ed-TFV"/>
+                                                    </connections>
+                                                </tableCellView>
+                                                <tableCellView identifier="GroupCell" id="pD8-W4-SM6">
+                                                    <rect key="frame" x="1" y="53" width="616" height="17"/>
+                                                    <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                                                    <subviews>
+                                                        <textField verticalHuggingPriority="750" horizontalCompressionResistancePriority="250" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="CfH-Yh-4sr">
+                                                            <rect key="frame" x="1" y="0.0" width="614" height="17"/>
+                                                            <textFieldCell key="cell" lineBreakMode="truncatingTail" sendsActionOnEndEditing="YES" alignment="center" title="Table View Cell" id="7dw-IH-nbr">
+                                                                <font key="font" metaFont="titleBar"/>
+                                                                <color key="textColor" name="controlTextColor" catalog="System" colorSpace="catalog"/>
+                                                                <color key="backgroundColor" name="controlColor" catalog="System" colorSpace="catalog"/>
+                                                            </textFieldCell>
+                                                        </textField>
+                                                    </subviews>
+                                                    <connections>
+                                                        <outlet property="textField" destination="CfH-Yh-4sr" id="g2g-aO-0l8"/>
                                                     </connections>
                                                 </tableCellView>
                                             </prototypeCellViews>

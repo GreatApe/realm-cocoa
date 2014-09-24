@@ -34,6 +34,11 @@ NSString *const kSimulatorFolder = @"/Library/Application Support/iPhone Simulat
 NSString *const kDesktopFolder = @"/Desktop";
 NSString *const kDownloadFolder = @"/Download";
 NSString *const kDocumentsFolder = @"/Documents";
+NSString *const kOtherFolder = @"/";
+
+NSString *const kSplashPrefix = @"Prefix";
+NSString *const kSplashItems = @"Items";
+
 
 @interface RLMApplicationDelegate ()
 
@@ -51,7 +56,7 @@ NSString *const kDocumentsFolder = @"/Documents";
 
 @property (nonatomic, strong) RLMSplashWindowController *splashController;
 
-@property (nonatomic, strong) NSArray *allItems;
+@property (nonatomic, strong) NSArray *splashItems;
 
 @end
 
@@ -118,19 +123,24 @@ NSString *const kDocumentsFolder = @"/Documents";
         
         NSMetadataQuery *query = notification.object;
         if (query == self.realmQuery) {
+            [self updateSplashItems];
             NSLog(@"finshed realmQuery");
+            NSLog(@"");
             NSLog(@"start   appQuery");
             [self.appQuery startQuery];
         }
         else if (query == self.appQuery) {
             NSLog(@"finshed appQuery");
+            NSLog(@"");
             NSLog(@"start   projQuery");
             [self.projQuery startQuery];
         }
         else if (query == self.projQuery) {
             NSLog(@"finshed projQuery");
-            NSLog(@"updateFileItems");
-            [self updateFileItems];
+            NSLog(@"");
+            NSLog(@"start updateFileItems");
+            [self updateSplashItems];
+            NSLog(@"end   updateFileItems");
         }
     }
 }
@@ -139,7 +149,7 @@ NSString *const kDocumentsFolder = @"/Documents";
 {
     if (menu == self.openAnyRealmMenu) {
         [menu removeAllItems];
-        [self updateMenu:menu withItems:self.allItems indented:YES];
+        [self updateMenu:menu withItems:self.splashItems indented:YES];
     }
 }
 
@@ -148,38 +158,26 @@ NSString *const kDocumentsFolder = @"/Documents";
     NSImage *image = [NSImage imageNamed:@"AppIcon"];
     image.size = NSMakeSize(kMenuImageSize, kMenuImageSize);
     
-    for (id item in items) {
+    for (RLMSplashFileItem *splashItem in items) {
         // Category heading, create disabled menu item with corresponding name
-        if ([item isKindOfClass:[NSString class]]) {
+        if (splashItem.isCategoryName) {
             NSMenuItem *categoryItem = [[NSMenuItem alloc] init];
-            categoryItem.title = (NSString *)item;
+            categoryItem.title = splashItem.name;
             categoryItem.enabled = NO;
             [menu addItem:categoryItem];
         }
-        // Array of items, create cubmenu and set them up there by calling this method recursively
-        else if ([item isKindOfClass:[NSArray class]]) {
-            NSMenuItem *submenuItem = [[NSMenuItem alloc] init];
-            submenuItem.title = @"More";
-            submenuItem.indentationLevel = 1;
-            [menu addItem:submenuItem];
-            
-            NSMenu *submenu = [[NSMenu alloc] initWithTitle:@"More"];
-            NSArray *subitems = item;
-            [self updateMenu:submenu withItems:subitems indented:NO];
-            [menu setSubmenu:submenu forItem:submenuItem];
-        }
         // Normal file item, just create a menu item for it and wire it up
-        else if ([item isMemberOfClass:[NSMetadataItem class]]) {
-            NSMetadataItem *metadataItem = (NSMetadataItem *)item;
-            
+        else if (!splashItem.hideFromMenu) {
             // Get the path to the realm and see if there is additional info for it, such as app name
-            NSString *path = [metadataItem valueForAttribute:NSMetadataItemPathKey];
-            NSString *title = [[path lastPathComponent] stringByAppendingString:[self extraInfoForRealmWithPath:path]];
-
+            NSString *title = splashItem.name;
+            if (splashItem.metaData) {
+                title = [title stringByAppendingFormat:@" - %@", splashItem.metaData];
+            }
+            
             // Create a menu item using the title and link it with opening the file
             NSMenuItem *menuItem = [[NSMenuItem alloc] init];
             menuItem.title = title;
-            menuItem.representedObject = [NSURL fileURLWithPath:path];
+            menuItem.representedObject = [NSURL fileURLWithPath:splashItem.path];
             
             menuItem.target = self;
             menuItem.action = @selector(openFileWithMenuItem:);
@@ -187,9 +185,8 @@ NSString *const kDocumentsFolder = @"/Documents";
             menuItem.indentationLevel = indented ? 1 : 0;
             
             // Give the menu item a tooltip with modification date and full path
-            NSDate *date = [metadataItem valueForAttribute:NSMetadataItemFSContentChangeDateKey];
-            NSString *dateString = [self.dateFormatter stringFromDate:date];
-            menuItem.toolTip = [NSString stringWithFormat:@"%@\n\nModified: %@", path, dateString];
+            NSString *dateString = [self.dateFormatter stringFromDate:splashItem.modificationDate];
+            menuItem.toolTip = [NSString stringWithFormat:@"%@\n\nModified: %@", splashItem.path, dateString];
             
             [menu addItem:menuItem];
         }
@@ -215,8 +212,14 @@ NSString *const kDocumentsFolder = @"/Documents";
         searchEndPath = simulatorPrefix;
     }
     else {
-        // We have no extra info for this containing folder
-        return @"";
+        // We have no extra info for this containing folder at this point
+        return nil;
+    }
+    
+    if ([searchPaths count] == 0) {
+        NSLog(@"no searh paths!");
+
+        return nil;
     }
     
     // Search at most four levels up for a corresponding app/project file
@@ -225,7 +228,7 @@ NSString *const kDocumentsFolder = @"/Documents";
         realmPath = [[realmPath stringByDeletingLastPathComponent] copy];
         if ([realmPath isEqualToString:searchEndPath]) {
             // Reached end of iteration, the respective folder we are searching within
-            return @"";
+            return nil;
         }
         
         for (NSString *pathItem in searchPaths) {
@@ -234,72 +237,53 @@ NSString *const kDocumentsFolder = @"/Documents";
             
             if ([[foundPath stringByDeletingLastPathComponent] isEqualToString:realmPath]) {
                 // Found a project/app file, returning it in formatted form
-                NSString *extraInfo = [[[foundPath pathComponents] lastObject] stringByDeletingPathExtension];
-                return [NSString stringWithFormat: @" - %@", extraInfo];
+               return [[[foundPath pathComponents] lastObject] stringByDeletingPathExtension];
             }
         }
     }
     
     // Tried four levels up and still found nothing, nor reached containing folder. Giving up
-    return @"";
+    return nil;
 }
 
--(void)updateFileItems
+-(NSDictionary *)dictionaryForCategory:(NSString *)category folder:(NSString *)folder
 {
-    NSString *homeDir = NSHomeDirectory();
-    
-    NSString *kPrefix = @"Prefix";
-    NSString *kItems = @"Items";
-    
-    NSString *simPrefix = [homeDir stringByAppendingPathComponent:kSimulatorFolder];
-    NSDictionary *simDict = @{kPrefix : simPrefix, kItems : [NSMutableArray arrayWithObject:@"iPhone Simulator"]};
-    
-    NSString *devPrefix = [homeDir stringByAppendingPathComponent:kDeveloperFolder];
-    NSDictionary *devDict = @{kPrefix : devPrefix, kItems : [NSMutableArray arrayWithObject:@"Developer"]};
-    
-    NSString *desktopPrefix = [homeDir stringByAppendingPathComponent:kDesktopFolder];
-    NSDictionary *desktopDict = @{kPrefix : desktopPrefix, kItems : [NSMutableArray arrayWithObject:@"Desktop"]};
-    
-    NSString *downloadPrefix = [homeDir stringByAppendingPathComponent:kDownloadFolder];
-    NSDictionary *downloadDict = @{kPrefix : downloadPrefix, kItems : [NSMutableArray arrayWithObject:@"Download"]};
-    
-    NSString *documentsPrefix = [homeDir stringByAppendingPathComponent:kDocumentsFolder];
-    NSDictionary *documentsdDict = @{kPrefix : documentsPrefix, kItems : [NSMutableArray arrayWithObject:@"Documents"]};
-    
-    NSString *allPrefix = @"/";
-    NSDictionary *otherDict = @{kPrefix : allPrefix, kItems : [NSMutableArray arrayWithObject:@"Other"]};
+    NSString *prefix = [NSHomeDirectory() stringByAppendingPathComponent:folder];
+    RLMSplashFileItem *categoryItem = [RLMSplashFileItem splashItemForCategory:category];
+    return @{kSplashPrefix : prefix, kSplashItems : [NSMutableArray arrayWithObject:categoryItem]};
+}
+
+-(void)updateSplashItems
+{
+    NSDictionary *simDict = [self dictionaryForCategory:@"iPhone Simulator" folder:kSimulatorFolder];
+    NSDictionary *devDict = [self dictionaryForCategory:@"Developer" folder:kDeveloperFolder];
+    NSDictionary *desktopDict = [self dictionaryForCategory:@"Desktop" folder:kDesktopFolder];
+    NSDictionary *downloadDict = [self dictionaryForCategory:@"Download" folder:kDownloadFolder];
+    NSDictionary *documentsdDict = [self dictionaryForCategory:@"Documents" folder:kDocumentsFolder];
+    NSDictionary *otherDict = [self dictionaryForCategory:@"Other" folder:kOtherFolder];
     
     // Create array of dictionaries, each corresponding to search folders
     NSArray *groupedFileItems = @[simDict, devDict, desktopDict, documentsdDict, downloadDict, otherDict];
     
     // Iterate through all search results
-    for (NSMetadataItem *fileItem in self.realmQuery.results) {
+    for (NSMetadataItem *metaDataItem in self.realmQuery.results) {
         // Iterate through the different prefixes and add item to corresponding array within dictionary
         for (NSDictionary *dict in groupedFileItems) {
-            if ([[fileItem valueForAttribute:NSMetadataItemPathKey] hasPrefix:dict[kPrefix]]) {
-                NSMutableArray *items = dict[kItems];
-                // The first few items are just added
-                if (items.count - 1 < kMaxFilesPerCategory) {
-                    [items addObject:fileItem];
-                }
-                // When we reach the maximum number of files to show in the overview we create an array...
-                else if (items.count - 1 == kMaxFilesPerCategory) {
-                    NSMutableArray *moreFileItems = [NSMutableArray arrayWithObject:fileItem];
-                    [items addObject:moreFileItems];
-                }
-                // ... and henceforth we put fileItems here instead - the menu method will create a submenu.
-                else {
-                    NSMutableArray *moreFileItems = [items lastObject];
-                    [moreFileItems addObject:fileItem];
-                }
+            if ([[metaDataItem valueForAttribute:NSMetadataItemPathKey] hasPrefix:dict[kSplashPrefix]]) {
+                NSMutableArray *items = dict[kSplashItems];
+                RLMSplashFileItem *splashItem = [RLMSplashFileItem splashItemWithMetaData:metaDataItem];
+                splashItem.hideFromMenu = items.count > kMaxFilesPerCategory;
+                splashItem.metaData = [self extraInfoForRealmWithPath:splashItem.path];
+                [items addObject:splashItem];
+                
                 // We have already found a matching prefix, we can stop considering this item
                 break;
             }
         }
     }
     
-    self.allItems = [groupedFileItems valueForKeyPath:@"Items.@unionOfArrays.self"];
-    [self.splashController setupWithFileItems:self.allItems];
+    self.splashItems = [groupedFileItems valueForKeyPath:@"Items.@unionOfArrays.self"];
+    self.splashController.fileItems = self.splashItems;
 }
 
 - (IBAction)generatedDemoDatabase:(id)sender
