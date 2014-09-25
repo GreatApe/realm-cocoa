@@ -54,7 +54,6 @@
 -(void)awakeFromNib
 {
     [super awakeFromNib];
-    NSLog(@"awake!");
 }
 
 - (void)windowDidLoad {
@@ -67,7 +66,7 @@
 {
     _fileItems = fileItems;
     NSLog(@"----- reloadData! ------");
-    NSLog(@"fileItems:\n%@", fileItems);
+//    NSLog(@"fileItems:\n%@", fileItems);
 
     [self.tableView reloadData];
 }

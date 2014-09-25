@@ -94,6 +94,12 @@ NSString *const kSplashItems = @"Items";
         
         self.splashController = [[RLMSplashWindowController alloc] initWithWindowNibName:@"Splash"];
         [self.splashController showWindow:self];
+        
+        NSUserDefaults *standardDefaults = [NSUserDefaults standardUserDefaults];
+        NSString *projectPath = [standardDefaults stringForKey:@"xcodeProjectPath"];
+        NSString *projectFolder = [projectPath stringByDeletingLastPathComponent];
+        
+        NSLog (@"BROWSER: xcodeProjectPath: %@", projectFolder);
     }
 }
 
