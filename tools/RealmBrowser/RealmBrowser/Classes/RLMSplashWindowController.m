@@ -54,6 +54,7 @@
 -(void)awakeFromNib
 {
     [super awakeFromNib];
+    [self.window setFrameOrigin:NSMakePoint(255, 255)];
 }
 
 - (void)windowDidLoad {
@@ -84,7 +85,7 @@
 
 - (CGFloat)tableView:(NSTableView *)tableView heightOfRow:(NSInteger)row {
     RLMSplashFileItem *item = self.fileItems[row];
-    return item.isCategoryName ? 20.0 : 50.0;
+    return item.isCategoryName ? 40.0 : 50.0;
 }
 
 -(NSView *)tableView:(NSTableView *)tableView viewForTableColumn:(NSTableColumn *)tableColumn row:(NSInteger)row

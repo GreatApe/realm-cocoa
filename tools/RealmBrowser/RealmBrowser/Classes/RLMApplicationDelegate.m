@@ -55,8 +55,8 @@ NSString *const kSplashItems = @"Items";
 @property (nonatomic, strong) NSMetadataQuery *projQuery;
 
 @property (nonatomic, strong) RLMSplashWindowController *splashController;
-
 @property (nonatomic, strong) NSArray *splashItems;
+@property (nonatomic, strong) NSString *currentProjectFolder;
 
 @end
 
@@ -97,9 +97,7 @@ NSString *const kSplashItems = @"Items";
         
         NSUserDefaults *standardDefaults = [NSUserDefaults standardUserDefaults];
         NSString *projectPath = [standardDefaults stringForKey:@"xcodeProjectPath"];
-        NSString *projectFolder = [projectPath stringByDeletingLastPathComponent];
-        
-        NSLog (@"BROWSER: xcodeProjectPath: %@", projectFolder);
+        self.currentProjectFolder = [projectPath stringByDeletingLastPathComponent];
     }
 }
 
@@ -130,23 +128,17 @@ NSString *const kSplashItems = @"Items";
         NSMetadataQuery *query = notification.object;
         if (query == self.realmQuery) {
             [self updateSplashItems];
-            NSLog(@"finshed realmQuery");
-            NSLog(@"");
-            NSLog(@"start   appQuery");
+            NSLog(@"finshed realmQuery - start appQuery");
             [self.appQuery startQuery];
         }
         else if (query == self.appQuery) {
-            NSLog(@"finshed appQuery");
-            NSLog(@"");
-            NSLog(@"start   projQuery");
+            NSLog(@"finshed appQuery - start projQuery");
             [self.projQuery startQuery];
         }
         else if (query == self.projQuery) {
-            NSLog(@"finshed projQuery");
-            NSLog(@"");
-            NSLog(@"start updateFileItems");
+            NSLog(@"finshed projQuery - start updateFileItems");
             [self updateSplashItems];
-            NSLog(@"end   updateFileItems");
+            NSLog(@"finshed updateFileItems");
         }
     }
 }
@@ -223,8 +215,6 @@ NSString *const kSplashItems = @"Items";
     }
     
     if ([searchPaths count] == 0) {
-        NSLog(@"no searh paths!");
-
         return nil;
     }
     
@@ -254,22 +244,29 @@ NSString *const kSplashItems = @"Items";
 
 -(NSDictionary *)dictionaryForCategory:(NSString *)category folder:(NSString *)folder
 {
-    NSString *prefix = [NSHomeDirectory() stringByAppendingPathComponent:folder];
+    if (![folder hasPrefix:NSHomeDirectory()]) {
+        folder = [NSHomeDirectory() stringByAppendingPathComponent:folder];
+    }
     RLMSplashFileItem *categoryItem = [RLMSplashFileItem splashItemForCategory:category];
-    return @{kSplashPrefix : prefix, kSplashItems : [NSMutableArray arrayWithObject:categoryItem]};
+    return @{kSplashPrefix : folder, kSplashItems : [NSMutableArray arrayWithObject:categoryItem]};
 }
 
 -(void)updateSplashItems
 {
-    NSDictionary *simDict = [self dictionaryForCategory:@"iPhone Simulator" folder:kSimulatorFolder];
-    NSDictionary *devDict = [self dictionaryForCategory:@"Developer" folder:kDeveloperFolder];
-    NSDictionary *desktopDict = [self dictionaryForCategory:@"Desktop" folder:kDesktopFolder];
-    NSDictionary *downloadDict = [self dictionaryForCategory:@"Download" folder:kDownloadFolder];
-    NSDictionary *documentsdDict = [self dictionaryForCategory:@"Documents" folder:kDocumentsFolder];
-    NSDictionary *otherDict = [self dictionaryForCategory:@"Other" folder:kOtherFolder];
+    NSMutableArray *groupedFileItems = [NSMutableArray array];
     
     // Create array of dictionaries, each corresponding to search folders
-    NSArray *groupedFileItems = @[simDict, devDict, desktopDict, documentsdDict, downloadDict, otherDict];
+    if (self.currentProjectFolder) {
+        // If launched by plugin, show realms from current xcode project
+        [groupedFileItems addObject:[self dictionaryForCategory:@"Current Xcode project" folder:self.currentProjectFolder]];
+    }
+    
+    [groupedFileItems addObject:[self dictionaryForCategory:@"iPhone Simulator" folder:kSimulatorFolder]];
+    [groupedFileItems addObject:[self dictionaryForCategory:@"Developer" folder:kDeveloperFolder]];
+    [groupedFileItems addObject:[self dictionaryForCategory:@"Desktop" folder:kDesktopFolder]];
+    [groupedFileItems addObject:[self dictionaryForCategory:@"Download" folder:kDownloadFolder]];
+    [groupedFileItems addObject:[self dictionaryForCategory:@"Documents" folder:kDocumentsFolder]];
+    [groupedFileItems addObject:[self dictionaryForCategory:@"Other" folder:kOtherFolder]];
     
     // Iterate through all search results
     for (NSMetadataItem *metaDataItem in self.realmQuery.results) {
