@@ -18,6 +18,7 @@
 
 #import "RLMSplashWindowController.h"
 #import "RLMSplashTableCellView.h"
+#import <QuartzCore/QuartzCore.h>
 
 @implementation RLMSplashFileItem
 
