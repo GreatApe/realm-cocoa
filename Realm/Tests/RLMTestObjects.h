@@ -142,6 +142,11 @@ RLM_ARRAY_TYPE(EmployeeObject)
 
 RLM_ARRAY_TYPE(DogObject)
 
+@interface DogArrayObject : RLMObject
+@property RLMArray<DogObject> *dogs;
+@end
+
+
 #pragma mark OwnerObject
 
 @interface OwnerObject : RLMObject
@@ -177,7 +182,7 @@ RLM_ARRAY_TYPE(DogObject)
 
 @interface BaseClassStringObject : RLMObject
 
-@property NSInteger intCol;
+@property int intCol;
 
 @end
 
@@ -214,23 +219,12 @@ RLM_ARRAY_TYPE(CircleObject);
 
 @end
 
-#pragma mark - Class Extension
-
-@interface RLMRealm ()
-
-+ (instancetype)realmWithPath:(NSString *)path
-                     readOnly:(BOOL)readonly
-                      dynamic:(BOOL)dynamic
-                        error:(NSError **)outError;
-
-@end
-
 #pragma mark DynamicObject
 
 @interface DynamicObject : RLMObject
 
 @property NSString *stringCol;
-@property NSInteger intCol;
+@property int intCol;
 
 @end
 

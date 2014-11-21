@@ -18,6 +18,7 @@
 
 #import "RLMObject_Private.h"
 #import "RLMSchema_Private.h"
+#import "RLMProperty_Private.h"
 #import "RLMObjectSchema_Private.hpp"
 #import "RLMObjectStore.hpp"
 #import "RLMQueryUtil.hpp"
@@ -60,15 +61,20 @@
         // assume our object is an NSDictionary or a an object with kvc properties
         NSDictionary *dict = RLMValidatedDictionaryForObjectSchema(value, _objectSchema, RLMSchema.sharedSchema);
         for (NSString *name in dict) {
-            [self setValue:dict[name] forKeyPath:name];
+            id val = dict[name];
+            // strip out NSNull before passing values to standalone setters
+            if (val == NSNull.null) {
+                val = nil;
+            }
+            [self setValue:val forKeyPath:name];
         }
     }
 
     return self;
 }
 
-- (instancetype)initWithRealm:(RLMRealm *)realm
-                       schema:(RLMObjectSchema *)schema
+- (instancetype)initWithRealm:(__unsafe_unretained RLMRealm *)realm
+                       schema:(__unsafe_unretained RLMObjectSchema *)schema
                 defaultValues:(BOOL)useDefaults {
     self = [super init];
     if (self) {
@@ -223,10 +229,10 @@
         return @"<Maximum depth exceeded>";
     }
 
-    NSString *baseClassName = self.objectSchema.className;
+    RLMObjectSchema *objectSchema = self.objectSchema;
+    NSString *baseClassName = objectSchema.className;
     NSMutableString *mString = [NSMutableString stringWithFormat:@"%@ {\n", baseClassName];
-    RLMObjectSchema *objectSchema = self.realm.schema[baseClassName];
-    
+
     for (RLMProperty *property in objectSchema.properties) {
         id object = self[property.name];
         NSString *sub;
@@ -239,13 +245,49 @@
         [mString appendFormat:@"\t%@ = %@;\n", property.name, sub];
     }
     [mString appendString:@"}"];
-    
+
     return [NSString stringWithString:mString];
 }
 
 - (BOOL)isDeletedFromRealm {
     // if not standalone and our accessor has been detached, we have been deleted
     return self.class == self.objectSchema.accessorClass && !_row.is_attached();
+}
+
+- (NSArray *)linkingObjectsOfClass:(NSString *)className forProperty:(NSString *)property {
+    if (!_realm) {
+        @throw [NSException exceptionWithName:@"RLMException"
+                                       reason:@"Linking object only available for objects in a Realm."
+                                     userInfo:nil];
+    }
+    RLMCheckThread(_realm);
+
+    if (!_row.is_attached()) {
+        @throw [NSException exceptionWithName:@"RLMException"
+                                       reason:@"Object has been deleted and is no longer valid."
+                                     userInfo:nil];
+    }
+
+    RLMObjectSchema *schema = _realm.schema[className];
+    RLMProperty *prop = schema[property];
+    if (!prop) {
+        @throw [NSException exceptionWithName:@"RLMException" reason:[NSString stringWithFormat:@"Invalid property '%@'", property] userInfo:nil];
+    }
+
+    if (![prop.objectClassName isEqualToString:_objectSchema.className]) {
+        @throw [NSException exceptionWithName:@"RLMException"
+                                       reason:[NSString stringWithFormat:@"Property '%@' of '%@' expected to be an RLMObject or RLMArray property pointing to type '%@'", property, className, _objectSchema.className]
+                                     userInfo:nil];
+    }
+
+    Table &table = *schema->_table.get();
+    size_t col = prop.column;
+    NSUInteger count = _row.get_backlink_count(table, col);
+    NSMutableArray *links = [NSMutableArray arrayWithCapacity:count];
+    for (NSUInteger i = 0; i < count; i++) {
+        [links addObject:RLMCreateObjectAccessor(_realm, className, _row.get_backlink(table, col, i))];
+    }
+    return [links copy];
 }
 
 - (BOOL)isEqualToObject:(RLMObject *)object {

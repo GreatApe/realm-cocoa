@@ -24,9 +24,9 @@
 #import "RLMObjectStore.hpp"
 #import "RLMQueryUtil.hpp"
 #import "RLMConstants.h"
-#import <objc/runtime.h>
+#import "RLMUtil.hpp"
 
-#import <tightdb/util/unique_ptr.hpp>
+#import <objc/runtime.h>
 
 //
 // RLMResults implementation
@@ -35,6 +35,12 @@
     std::unique_ptr<tightdb::Query> _backingQuery;
     tightdb::TableView _backingView;
     BOOL _viewCreated;
+    RowIndexes::Sorter _sortOrder;
+    RLMObjectSchema *_objectSchema;
+
+@protected
+    RLMRealm *_realm;
+    NSString *_objectClassName;
 }
 
 - (instancetype)initPrivate {
@@ -45,33 +51,48 @@
 + (instancetype)resultsWithObjectClassName:(NSString *)objectClassName
                                      query:(std::unique_ptr<tightdb::Query>)query
                                      realm:(RLMRealm *)realm {
+    return [self resultsWithObjectClassName:objectClassName query:move(query) sort:RowIndexes::Sorter{} realm:realm];
+}
+
++ (instancetype)resultsWithObjectClassName:(NSString *)objectClassName
+                                     query:(std::unique_ptr<tightdb::Query>)query
+                                      sort:(RowIndexes::Sorter const&)sorter
+                                     realm:(RLMRealm *)realm {
     RLMResults *ar = [[RLMResults alloc] initPrivate];
     ar->_objectClassName = objectClassName;
     ar->_viewCreated = NO;
     ar->_backingQuery = move(query);
+    ar->_sortOrder = sorter;
     ar->_realm = realm;
+    ar->_objectSchema = realm.schema[objectClassName];
     return ar;
 }
 
 + (instancetype)resultsWithObjectClassName:(NSString *)objectClassName
+                                     query:(std::unique_ptr<tightdb::Query>)query
                                       view:(tightdb::TableView)view
                                      realm:(RLMRealm *)realm {
     RLMResults *ar = [[RLMResults alloc] initPrivate];
     ar->_objectClassName = objectClassName;
     ar->_viewCreated = YES;
     ar->_backingView = move(view);
+    ar->_backingQuery = move(query);
     ar->_realm = realm;
+    ar->_objectSchema = realm.schema[objectClassName];
     return ar;
 }
 
 //
 // validation helper
 //
-static inline void RLMResultsValidateAttached(RLMResults *ar) {
+static inline void RLMResultsValidateAttached(__unsafe_unretained RLMResults *ar) {
     if (!ar->_viewCreated) {
         // create backing view if needed
         ar->_backingView = ar->_backingQuery->find_all();
         ar->_viewCreated = YES;
+        if (!ar->_sortOrder.m_columns.empty()) {
+            ar->_backingView.sort(ar->_sortOrder.m_columns, ar->_sortOrder.m_ascending);
+        }
     }
     else {
         // otherwiser verify attached and sync
@@ -81,12 +102,12 @@ static inline void RLMResultsValidateAttached(RLMResults *ar) {
         ar->_backingView.sync_if_needed();
     }
 }
-static inline void RLMResultsValidate(RLMResults *ar) {
+static inline void RLMResultsValidate(__unsafe_unretained RLMResults *ar) {
     RLMResultsValidateAttached(ar);
     RLMCheckThread(ar->_realm);
 }
 
-static inline void RLMResultsValidateInWriteTransaction(RLMResults *ar) {
+static inline void RLMResultsValidateInWriteTransaction(__unsafe_unretained RLMResults *ar) {
     // first verify attached
     RLMResultsValidate(ar);
 
@@ -129,12 +150,11 @@ static inline void RLMResultsValidateInWriteTransaction(RLMResults *ar) {
 
     NSUInteger batchCount = 0, index = state->state, count = state->extra[1];
 
-    RLMObjectSchema *objectSchema = _realm.schema[_objectClassName];
-    Class accessorClass = objectSchema.accessorClass;
+    Class accessorClass = _objectSchema.accessorClass;
     while (index < count && batchCount < len) {
         // get acessor fot the object class
-        RLMObject *accessor = [[accessorClass alloc] initWithRealm:_realm schema:objectSchema defaultValues:NO];
-        accessor->_row = (*objectSchema->_table)[_backingView.get_source_ndx(index++)];
+        RLMObject *accessor = [[accessorClass alloc] initWithRealm:_realm schema:_objectSchema defaultValues:NO];
+        accessor->_row = (*_objectSchema->_table)[_backingView.get_source_ndx(index++)];
         items->array[batchCount] = accessor;
         buffer[batchCount] = accessor;
         batchCount++;
@@ -176,10 +196,13 @@ static inline void RLMResultsValidateInWriteTransaction(RLMResults *ar) {
     if (index >= self.count) {
         @throw [NSException exceptionWithName:@"RLMException" reason:@"Index is out of bounds." userInfo:@{@"index": @(index)}];
     }
-    return RLMCreateObjectAccessor(_realm, _objectClassName, _backingView.get_source_ndx(index));
+    return RLMCreateObjectAccessor(_realm, _objectSchema,
+                                   _backingView.get_source_ndx(index));
 }
 
 - (id)firstObject {
+    RLMResultsValidate(self);
+
     if (self.count) {
         return [self objectAtIndex:0];
     }
@@ -187,6 +210,8 @@ static inline void RLMResultsValidateInWriteTransaction(RLMResults *ar) {
 }
 
 - (id)lastObject {
+    RLMResultsValidate(self);
+
     NSUInteger count = self.count;
     if (count) {
         return [self objectAtIndex:count-1];
@@ -238,7 +263,10 @@ static inline void RLMResultsValidateInWriteTransaction(RLMResults *ar) {
     // copy array and apply new predicate creating a new query and view
     auto query = std::make_unique<tightdb::Query>(*_backingQuery, tightdb::Query::TCopyExpressionTag{});
     RLMUpdateQueryWithPredicate(query.get(), predicate, _realm.schema, _realm.schema[self.objectClassName]);
-    return [RLMResults resultsWithObjectClassName:self.objectClassName query:move(query) realm:_realm];
+    return [RLMResults resultsWithObjectClassName:self.objectClassName
+                                            query:move(query)
+                                             sort:_backingView.m_sorting_predicate
+                                            realm:_realm];
 }
 
 - (RLMResults *)sortedResultsUsingProperty:(NSString *)property ascending:(BOOL)ascending {

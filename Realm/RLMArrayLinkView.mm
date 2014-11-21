@@ -17,21 +17,25 @@
 ////////////////////////////////////////////////////////////////////////////
 
 #import "RLMArray_Private.hpp"
-#import "RLMObjectSchema_Private.hpp"
-#import "RLMProperty_Private.h"
-#import "RLMObject_Private.h"
-#import "RLMRealm_Private.hpp"
 #import "RLMConstants.h"
+#import "RLMObjectSchema_Private.hpp"
 #import "RLMObjectStore.hpp"
+#import "RLMObject_Private.h"
+#import "RLMProperty_Private.h"
 #import "RLMQueryUtil.hpp"
+#import "RLMRealm_Private.hpp"
 #import "RLMSchema.h"
+#import "RLMUtil.hpp"
 
 #import <objc/runtime.h>
 
 //
 // RLMArray implementation
 //
-@implementation RLMArrayLinkView 
+@implementation RLMArrayLinkView {
+    tightdb::LinkViewRef _backingLinkView;
+    RLMObjectSchema *_objectSchema;
+}
 
 + (RLMArrayLinkView *)arrayWithObjectClassName:(NSString *)objectClassName
                                           view:(tightdb::LinkViewRef)view
@@ -39,19 +43,20 @@
     RLMArrayLinkView *ar = [[RLMArrayLinkView alloc] initWithObjectClassName:objectClassName standalone:NO];
     ar->_backingLinkView = view;
     ar->_realm = realm;
+    ar->_objectSchema = realm.schema[objectClassName];
     return ar;
 }
 
 //
 // validation helpers
 //
-static inline void RLMLinkViewArrayValidateAttached(RLMArrayLinkView *ar) {
+static inline void RLMLinkViewArrayValidateAttached(__unsafe_unretained RLMArrayLinkView *ar) {
     if (!ar->_backingLinkView->is_attached()) {
         @throw [NSException exceptionWithName:@"RLMException" reason:@"RLMArray is no longer valid" userInfo:nil];
     }
     RLMCheckThread(ar->_realm);
 }
-static inline void RLMLinkViewArrayValidateInWriteTransaction(RLMArrayLinkView *ar) {
+static inline void RLMLinkViewArrayValidateInWriteTransaction(__unsafe_unretained RLMArrayLinkView *ar) {
     // first verify attached
     RLMLinkViewArrayValidateAttached(ar);
 
@@ -61,7 +66,7 @@ static inline void RLMLinkViewArrayValidateInWriteTransaction(RLMArrayLinkView *
                                      userInfo:nil];
     }
 }
-static inline void RLMValidateObjectClass(RLMObject *obj, NSString *expected) {
+static inline void RLMValidateObjectClass(__unsafe_unretained RLMObject *obj, __unsafe_unretained NSString *expected) {
     NSString *objectClassName = obj.objectSchema.className;
     if (![objectClassName isEqualToString:expected]) {
         @throw [NSException exceptionWithName:@"RLMException" reason:@"Attempting to insert wrong object type"
@@ -93,11 +98,10 @@ static inline void RLMValidateObjectClass(RLMObject *obj, NSString *expected) {
 
     NSUInteger batchCount = 0, index = state->state, count = state->extra[1];
 
-    RLMObjectSchema *objectSchema = _realm.schema[_objectClassName];
-    Class accessorClass = objectSchema.accessorClass;
-    tightdb::Table &table = *objectSchema->_table;
+    Class accessorClass = _objectSchema.accessorClass;
+    tightdb::Table &table = *_objectSchema->_table;
     while (index < count && batchCount < len) {
-        RLMObject *accessor = [[accessorClass alloc] initWithRealm:_realm schema:objectSchema defaultValues:NO];
+        RLMObject *accessor = [[accessorClass alloc] initWithRealm:_realm schema:_objectSchema defaultValues:NO];
         accessor->_row = table[_backingLinkView->get(index++).get_index()];
         items->array[batchCount] = accessor;
         buffer[batchCount] = accessor;
@@ -121,8 +125,7 @@ static inline void RLMValidateObjectClass(RLMObject *obj, NSString *expected) {
     if (index >= _backingLinkView->size()) {
         @throw [NSException exceptionWithName:@"RLMException" reason:@"Index is out of bounds." userInfo:@{@"index": @(index)}];
     }
-    return RLMCreateObjectAccessor(_realm,
-                                   _objectClassName,
+    return RLMCreateObjectAccessor(_realm, _objectSchema,
                                    _backingLinkView->get(index).get_index());
 }
 
@@ -230,7 +233,22 @@ static inline void RLMValidateObjectClass(RLMObject *obj, NSString *expected) {
     RLMGetColumnIndices(_realm.schema[_objectClassName], properties, columns, order);
 
     tightdb::TableView const &tv = _backingLinkView->get_sorted_view(move(columns), move(order));
-    return [RLMResults resultsWithObjectClassName:self.objectClassName view:tv realm:_realm];
+    auto query = std::make_unique<tightdb::Query>(_backingLinkView->get_target_table().where(_backingLinkView));
+    return [RLMResults resultsWithObjectClassName:self.objectClassName
+                                                 query:move(query)
+                                                  view:tv
+                                                 realm:_realm];
+
+}
+
+- (RLMResults *)objectsWithPredicate:(NSPredicate *)predicate {
+    RLMLinkViewArrayValidateAttached(self);
+
+    tightdb::Query query = _backingLinkView->get_target_table().where(_backingLinkView);
+    RLMUpdateQueryWithPredicate(&query, predicate, _realm.schema, _realm.schema[self.objectClassName]);
+    return [RLMResults resultsWithObjectClassName:self.objectClassName
+                                            query:std::make_unique<tightdb::Query>(query)
+                                            realm:_realm];
 }
 
 @end

@@ -22,10 +22,10 @@
 #import "RLMObjectStore.hpp"
 #import "RLMQueryUtil.hpp"
 
-@implementation RLMArray
-
-@synthesize realm = _realm;
-@synthesize objectClassName = _objectClassName;
+@implementation RLMArray {
+    // array for standalone
+    NSMutableArray *_backingArray;
+}
 
 - (instancetype)initWithObjectClassName:(NSString *)objectClassName standalone:(BOOL)standalone {
     self = [super init];
@@ -146,15 +146,9 @@ static void RLMValidateMatchingObjectType(RLMArray *array, RLMObject *object) {
 
 - (void)deleteObjectsFromRealm {
     for (RLMObject *obj in _backingArray) {
-        RLMDeleteObjectFromRealm(obj);
+        RLMDeleteObjectFromRealm(obj, _realm);
     }
 }
-
-
-
-//
-// Methods unsupported on standalone RLMArray instances
-//
 
 - (RLMResults *)objectsWhere:(NSString *)predicateFormat, ...
 {
@@ -163,13 +157,17 @@ static void RLMValidateMatchingObjectType(RLMArray *array, RLMObject *object) {
     return [self objectsWhere:predicateFormat args:args];
 }
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
 - (RLMResults *)objectsWhere:(NSString *)predicateFormat args:(va_list)args
 {
-    @throw [NSException exceptionWithName:@"RLMException"
-                                   reason:@"This method can only be called on RLMArray instances retrieved from an RLMRealm" userInfo:nil];
+    return [self objectsWithPredicate:[NSPredicate predicateWithFormat:predicateFormat arguments:args]];
 }
+
+//
+// Methods unsupported on standalone RLMArray instances
+//
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-parameter"
 
 - (RLMResults *)objectsWithPredicate:(NSPredicate *)predicate
 {

@@ -16,7 +16,7 @@ set -e
 # You can override the version of the core library
 # Otherwise, use the default value
 if [ -z "$REALM_CORE_VERSION" ]; then
-    REALM_CORE_VERSION=0.84.0
+    REALM_CORE_VERSION=0.86.0
 fi
 
 PATH=/usr/local/bin:/usr/bin:/bin:/usr/libexec:$PATH
@@ -37,6 +37,7 @@ command:
   build-debug [xcmode]:    builds iOS and OS X frameworks with debug configuration
   ios [xcmode]:            builds iOS framework with release configuration
   ios-debug [xcmode]:      builds iOS framework with debug configuration
+  ios-dynamic [xcmode]:    builds iOS dynamic framework for iOS 8
   osx [xcmode]:            builds OS X framework with release configuration
   osx-debug [xcmode]:      builds OS X framework with debug configuration
   test-ios [xcmode]:       tests iOS framework with release configuration
@@ -88,6 +89,24 @@ xc() {
 xcrealm() {
     PROJECT=Realm.xcodeproj
     xc "-project $PROJECT $@"
+}
+
+build_fat() {
+    target="$1"
+    build_prefix="$2"
+    out_dir="$3"
+
+    xcrealm "-scheme '$target' -configuration Release -sdk iphoneos"
+    xcrealm "-scheme '$target' -configuration Release -sdk iphonesimulator"
+
+    srcdir="build/DerivedData/Realm/Build/Products/Release-dynamic"
+    mkdir -p build/$out_dir
+    rm -rf build/$out_dir/Realm.framework
+    cp -R $build_prefix-iphoneos/Realm.framework build/$out_dir
+    if [ -d build/$out_dir/Realm.framework/Modules/Realm.swiftmodule ]; then
+        cp $build_prefix-iphonesimulator/Realm.framework/Modules/Realm.swiftmodule/* build/$out_dir/Realm.framework/Modules/Realm.swiftmodule/
+    fi
+    xcrun lipo -create "$build_prefix-iphonesimulator/Realm.framework/Realm" "$build_prefix-iphoneos/Realm.framework/Realm" -output "build/$out_dir/Realm.framework/Realm"
 }
 
 ######################################
@@ -149,6 +168,7 @@ download_core() {
     fi
     (
         cd "${TMP_DIR}"
+        rm -rf core
         unzip "${CORE_ZIP}"
         mv core core-${REALM_CORE_VERSION}
     )
@@ -218,7 +238,12 @@ case "$COMMAND" in
         ;;
 
     "ios")
-        xcrealm "-scheme iOS -configuration Release-Combined"
+        build_fat iOS build/DerivedData/Realm/Build/Products/Release ios
+        exit 0
+        ;;
+
+    "ios-dynamic")
+        build_fat 'iOS 8' build/DerivedData/Realm/Build/Products/Release-dynamic ios-dynamic
         exit 0
         ;;
 
@@ -267,7 +292,9 @@ case "$COMMAND" in
         ;;
 
     "test-ios")
-        xcrealm "-scheme iOS -configuration Release-Combined -sdk iphonesimulator -destination 'name=iPhone 6' test"
+        xcrealm "-scheme iOS -configuration Release -sdk iphonesimulator -destination 'name=iPhone 6' test"
+        xcrealm "-scheme iOS -configuration Release -sdk iphonesimulator -destination 'name=iPhone 4S' test"
+        xcrealm "-scheme 'iOS 8' -configuration Release -sdk iphonesimulator -destination 'name=iPhone 6' test"
         exit 0
         ;;
 
@@ -282,6 +309,8 @@ case "$COMMAND" in
 
     "test-ios-debug")
         xcrealm "-scheme iOS -configuration Debug -sdk iphonesimulator -destination 'name=iPhone 6' test"
+        xcrealm "-scheme iOS -configuration Debug -sdk iphonesimulator -destination 'name=iPhone 4S' test"
+        xcrealm "-scheme 'iOS 8' -configuration Debug -sdk iphonesimulator -destination 'name=iPhone 6' test"
         exit 0
         ;;
 
@@ -303,6 +332,13 @@ case "$COMMAND" in
         sh build.sh docs
         sh build.sh test-all "$XCMODE"
         sh build.sh examples "$XCMODE"
+        sh build.sh browser "$XCMODE"
+
+        (
+            cd examples/osx/objc/build/DerivedData/RealmExamples/Build/Products/Release
+            DYLD_FRAMEWORK_PATH=. ./JSONImport
+        ) || exit 1
+
         exit 0
         ;;
 
@@ -324,11 +360,15 @@ case "$COMMAND" in
         xc "-project ios/objc/RealmExamples.xcodeproj -scheme Simple -configuration Release build ${CODESIGN_PARAMS}"
         xc "-project ios/objc/RealmExamples.xcodeproj -scheme TableView -configuration Release build ${CODESIGN_PARAMS}"
         xc "-project ios/objc/RealmExamples.xcodeproj -scheme Migration -configuration Release build ${CODESIGN_PARAMS}"
+        xc "-project ios/objc/RealmExamples.xcodeproj -scheme Backlink -configuration Release build ${CODESIGN_PARAMS}"
+        xc "-project ios/objc/RealmExamples.xcodeproj -scheme GroupedTableView -configuration Release build ${CODESIGN_PARAMS}"
         xc "-project osx/objc/RealmExamples.xcodeproj -scheme JSONImport -configuration Release build ${CODESIGN_PARAMS}"
         xc "-project ios/swift/RealmExamples.xcodeproj -scheme Simple -configuration Release build ${CODESIGN_PARAMS}"
         xc "-project ios/swift/RealmExamples.xcodeproj -scheme TableView -configuration Release build ${CODESIGN_PARAMS}"
         xc "-project ios/swift/RealmExamples.xcodeproj -scheme Migration -configuration Release build ${CODESIGN_PARAMS}"
         xc "-project ios/swift/RealmExamples.xcodeproj -scheme Encryption -configuration Release build ${CODESIGN_PARAMS}"
+        xc "-project ios/swift/RealmExamples.xcodeproj -scheme Backlink -configuration Release build ${CODESIGN_PARAMS}"
+        xc "-project ios/swift/RealmExamples.xcodeproj -scheme GroupedTableView -configuration Release build ${CODESIGN_PARAMS}"
         exit 0
         ;;
 
@@ -338,11 +378,15 @@ case "$COMMAND" in
         xc "-project ios/objc/RealmExamples.xcodeproj -scheme Simple -configuration Debug build ${CODESIGN_PARAMS}"
         xc "-project ios/objc/RealmExamples.xcodeproj -scheme TableView -configuration Debug build ${CODESIGN_PARAMS}"
         xc "-project ios/objc/RealmExamples.xcodeproj -scheme Migration -configuration Debug build ${CODESIGN_PARAMS}"
+        xc "-project ios/objc/RealmExamples.xcodeproj -scheme Backlink -configuration Debug build ${CODESIGN_PARAMS}"
+        xc "-project ios/objc/RealmExamples.xcodeproj -scheme GroupedTableView -configuration Debug build ${CODESIGN_PARAMS}"
         xc "-project osx/objc/RealmExamples.xcodeproj -scheme JSONImport -configuration Debug build ${CODESIGN_PARAMS}"
         xc "-project ios/swift/RealmExamples.xcodeproj -scheme Simple -configuration Debug build ${CODESIGN_PARAMS}"
         xc "-project ios/swift/RealmExamples.xcodeproj -scheme TableView -configuration Debug build ${CODESIGN_PARAMS}"
         xc "-project ios/swift/RealmExamples.xcodeproj -scheme Migration -configuration Debug build ${CODESIGN_PARAMS}"
         xc "-project ios/swift/RealmExamples.xcodeproj -scheme Encryption -configuration Debug build ${CODESIGN_PARAMS}"
+        xc "-project ios/swift/RealmExamples.xcodeproj -scheme Backlink -configuration Debug build ${CODESIGN_PARAMS}"
+        xc "-project ios/swift/RealmExamples.xcodeproj -scheme GroupedTableView -configuration Debug build ${CODESIGN_PARAMS}"
         exit 0
         ;;
 
@@ -406,11 +450,11 @@ case "$COMMAND" in
     # Release packaging
     ######################################
     "package-browser")
-        mkdir -p test-reports
-        cd tightdb_objc/tools/RealmBrowser
-        xcodebuild -project RealmBrowser.xcodeproj -scheme RealmBrowser -IDECustomDerivedDataLocation=../../build/DerivedData -configuration Release clean build CODE_SIGN_IDENTITY= CODE_SIGNING_REQUIRED=NO
-        cd ${WORKSPACE}/tightdb_objc/build/DerivedData/RealmBrowser/Build/Products/Release
+        cd tightdb_objc
+        sh build.sh browser "$XCMODE"
+        cd ${WORKSPACE}/tightdb_objc/tools/RealmBrowser/build/DerivedData/RealmBrowser/Build/Products/Release
         zip -r realm-browser.zip Realm\ Browser.app
+        mv realm-browser.zip ${WORKSPACE}
         ;;
 
     "package-docs")
@@ -430,17 +474,14 @@ case "$COMMAND" in
         ;;
 
     "package-test-examples")
-        ( mkdir ios; cd ios; unzip ../realm-framework-ios.zip )
-        ( mkdir osx; cd osx; unzip ../realm-framework-osx.zip )
-        unzip realm-obj-examples.zip
+        VERSION=$(file realm-cocoa-*.zip | grep -o '\d*\.\d*\.\d*')
+        unzip realm-cocoa-*.zip
 
-        rm *.zip
-        cd examples
-
-        xc "-project ios/objc/RealmExamples.xcodeproj -scheme Simple -configuration Release build ${CODESIGN_PARAMS}"
-        xc "-project ios/objc/RealmExamples.xcodeproj -scheme TableView -configuration Release build ${CODESIGN_PARAMS}"
-        xc "-project ios/objc/RealmExamples.xcodeproj -scheme Migration -configuration Release build ${CODESIGN_PARAMS}"
-        xc "-project osx/objc/RealmExamples.xcodeproj -scheme JSONImport -configuration Release build ${CODESIGN_PARAMS}"
+        cp $0 realm-cocoa-${VERSION}
+        cd realm-cocoa-${VERSION}
+        sh build.sh examples "$XCMODE"
+        cd ..
+        rm -rf realm-cocoa-*
         ;;
 
     "package-ios")
@@ -532,11 +573,11 @@ EOF
         git clone $REALM_SOURCE tightdb_objc
 
         echo 'Packaging iOS'
-        sh tightdb_objc/build.sh package-ios
+        sh tightdb_objc/build.sh package-ios "$XCMODE"
         cp tightdb_objc/build/ios/realm-framework-ios.zip .
 
         echo 'Packaging OS X'
-        sh tightdb_objc/build.sh package-osx
+        sh tightdb_objc/build.sh package-osx "$XCMODE"
         cp tightdb_objc/build/DerivedData/Realm/Build/Products/Release/realm-framework-osx.zip .
 
         echo 'Packaging docs'
@@ -548,27 +589,17 @@ EOF
         git clean -xfd
         cd ../..
 
-        sh tightdb_objc/build.sh package-examples
+        sh tightdb_objc/build.sh package-examples "$XCMODE"
         cp tightdb_objc/realm-obj-examples.zip .
 
-        echo 'Testing packaged examples'
-        (
-            mkdir -p examples-test
-            cd examples-test
-            cp ../realm-framework-ios.zip .
-            cp ../realm-framework-osx.zip .
-            cp ../realm-obj-examples.zip .
-            ln -s $WORKSPACE/tightdb_objc .
-
-            sh ../tightdb_objc/build.sh package-test-examples
-        )
-
         echo 'Packaging browser'
-        sh tightdb_objc/build.sh package-browser
-        cp tightdb_objc/build/DerivedData/RealmBrowser/Build/Products/Release/realm-browser.zip .
+        sh tightdb_objc/build.sh package-browser "$XCMODE"
 
         echo 'Building final release package'
         sh tightdb_objc/build.sh package-release
+
+        echo 'Testing packaged examples'
+        sh tightdb_objc/build.sh package-test-examples "$XCMODE"
 
         ;;
 

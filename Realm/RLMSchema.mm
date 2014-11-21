@@ -99,6 +99,15 @@ static NSMutableDictionary *s_localNameToClass;
             if ([RLMSwiftSupport isSwiftClassName:className]) {
                 s_localNameToClass[[RLMSwiftSupport demangleClassName:className]] = cls;
             }
+            // NSStringFromClass demangles the names for top-level Swift classes
+            // but not for nested classes. _T indicates it's a Swift symbol, t
+            // indicates it's a type, and CC indicates it's a class within a
+            // class (further nesting will add more Cs)
+            else if ([className hasPrefix:@"_TtCC"]) {
+                @throw [NSException exceptionWithName:@"RLMException"
+                                               reason:@"RLMObject subclasses cannot be nested within other classes"
+                                             userInfo:nil];
+            }
             else {
                 s_localNameToClass[className] = cls;
             }
@@ -215,6 +224,18 @@ void RLMRealmSetPrimaryKeyForObjectClass(RLMRealm *realm, NSString *objectClass,
     RLMSchema *schema = [[RLMSchema allocWithZone:zone] init];
     schema.objectSchema = [[NSArray allocWithZone:zone] initWithArray:self.objectSchema copyItems:YES];
     return schema;
+}
+
+- (BOOL)isEqualToSchema:(RLMSchema *)schema {
+    if (_objectSchema.count != schema.objectSchema.count) {
+        return NO;
+    }
+    for (RLMObjectSchema *objectSchema in schema.objectSchema) {
+        if (![_objectSchemaByName[objectSchema.className] isEqualToObjectSchema:objectSchema]) {
+            return NO;
+        }
+    }
+    return YES;
 }
 
 @end

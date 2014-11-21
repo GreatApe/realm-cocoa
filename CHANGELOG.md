@@ -1,21 +1,114 @@
-0.87.0 Release notes (YYYY-MM-DD)
+0.88.0 Release notes (YYYY-MM-DD)
 =============================================================
 
 ### API breaking changes
+
+* None.
+
+### Enhancements
+
+* Add `-[RLMRealm writeCopyToPath:]` to write a compacted copy of the Realm
+  another file.
+* Add support for case insensitive, BEGINSWITH, ENDSWITH and CONTAINS string
+  queries on array properties.
+* Make fast enumeration of `RLMArray` and `RLMResults` ~30% faster and
+  `objectAtIndex:` ~55% faster.
+* Added a lldb visualizer script for displaying the contents of persisted
+  RLMObjects when debugging.
+* Added method `-setDefaultRealmPath:` to change the default Realm path.
+
+### Bugfixes
+
+* Fix for crash when running many simultaneous write transactions on background threads.
+* Fix for crashes caused by opening Realms at multiple paths simultaneously which have had
+  properties re-ordered during migration.
+* Don't run the query twice when `firstObject` or `lastObject` are called on an
+  `RLMResults` which has not had its results accessed already.
+* Fix for bug where schema version is 0 for new Realm created at the latest version.
+
+0.87.4 Release notes (2014-11-07)
+=============================================================
+
+### API breaking changes
+
+* None.
+
+### Enhancements
+
+* None.
+
+### Bugfixes
+
+* Fix browser location in release zip.
+
+0.87.3 Release notes (2014-11-06)
+=============================================================
+
+### API breaking changes
+
+* None.
+
+### Enhancements
+
+* Added method `-linkingObjectsOfClass:forProperty:` to RLMObject to expose inverse
+  relationships/backlinks.
+
+### Bugfixes
+
+* Fix for crash due to missing search index when migrating an object with a string primary key
+  in a database created using an older versions (0.86.3 and earlier).
+* Throw an exception when passing an array containing a
+  non-RLMObject to -[RLMRealm addObjects:].
+* Fix for crash when deleting an object from multiple threads.
+
+0.87.0 Release notes (2014-10-21)
+=============================================================
+
+### API breaking changes
+
 * RLMArray has been split into two classes, `RLMArray` and `RLMResults`. RLMArray is
   used for object properties as in previous releases. Moving forward all methods used to
   enumerate, query, and sort objects return an instance of a new class `RLMResults`. This
   change was made to support diverging apis and the future addition of change notifications
   for queries.
+* The api for migrations has changed. You now call `setSchemaVersion:withMigrationBlock:` to
+  register a global migration block and associated version. This block is applied to Realms as
+  needed when opened for Realms at a previous version. The block can be applied manually if
+  desired by calling `migrateRealmAtPath:`.
 * `arraySortedByProperty:ascending:` was renamed to `sortedResultsUsingProperty:ascending`
 * `addObjectsFromArray:` on both `RLMRealm` and `RLMArray` has been renamed to `addObjects:`
   and now accepts any container class which implements `NSFastEnumeration`
+* Building with Swift support now requires Xcode 6.1
 
 ### Enhancements
 
 * Add support for sorting `RLMArray`s by multiple columns with `sortedResultsUsingDescriptors:`
+* Added method `deleteAllObjects` on `RLMRealm` to clear a Realm.
+* Added method `createObject:withObject:` on `RLMMigration` which allows object creation during migrations.
+* Added method `deleteObject:` on `RLMMigration` which allows object deletion during migrations.
+* Updating to core library version 0.85.0.
+* Implement `objectsWhere:` and `objectsWithPredicate:` for array properties.
+* Add `cancelWriteTransaction` to revert all changes made in a write transaction and end the transaction.
+* Make creating `RLMRealm` instances on background threads when an instance
+  exists on another thread take a fifth of the time.
+* Support for partial updates when calling `createOrUpdateWithObject:` and `addOrUpdateObject:`
+* Re-enable Swift support on OS X
 
 ### Bugfixes
+
+* Fix exceptions when trying to set `RLMObject` properties after rearranging
+  the properties in a `RLMObject` subclass.
+* Fix crash on IN query with several thousand items.
+* Fix crash when querying indexed `NSString` properties.
+* Fixed an issue which prevented in-memory Realms from being used accross multiple threads.
+* Preserve the sort order when querying a sorted `RLMResults`.
+* Fixed an issue with migrations where if a Realm file is deleted after a Realm is initialized,
+  the newly created Realm can be initialized with an incorrect schema version.
+* Fix crash in `RLMSuperSet` when assigning to a `RLMArray` property on a standalone object.
+* Add an error message when the protocol for an `RLMArray` property is not a
+  valid object type.
+* Add an error message when an `RLMObject` subclass is defined nested within
+  another Swift class.
 
 0.86.3 Release notes (2014-10-09)
 =============================================================
