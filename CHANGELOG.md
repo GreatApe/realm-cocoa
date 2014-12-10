@@ -1,9 +1,27 @@
-0.88.0 Release notes (YYYY-MM-DD)
+x.x.x Release notes (yyyy-MM-dd)
 =============================================================
 
 ### API breaking changes
 
 * None.
+
+### Enhancements
+
+* Fix a memory leak when circularly linked objects are added to a Realm.
+
+### Bugfixes
+
+* Merge native Swift default property values with defaultPropertyValues().
+
+
+0.88.0 Release notes (2014-12-02)
+=============================================================
+
+### API breaking changes
+
+* Deallocating an RLMRealm instance in a write transaction lacking an explicit
+  commit/cancel will now be automatically cancelled instead of committed.
+* `-[RLMObject isDeletedFromRealm]` has been renamed to `-[RLMObject isInvalidated]`.
 
 ### Enhancements
 
@@ -16,6 +34,7 @@
 * Added a lldb visualizer script for displaying the contents of persisted
   RLMObjects when debugging.
 * Added method `-setDefaultRealmPath:` to change the default Realm path.
+* Add `-[RLMRealm invalidate]` to release data locked by the current thread.
 
 ### Bugfixes
 
@@ -25,6 +44,7 @@
 * Don't run the query twice when `firstObject` or `lastObject` are called on an
   `RLMResults` which has not had its results accessed already.
 * Fix for bug where schema version is 0 for new Realm created at the latest version.
+* Fix for error message where no migration block is specified when required.
 
 0.87.4 Release notes (2014-11-07)
 =============================================================

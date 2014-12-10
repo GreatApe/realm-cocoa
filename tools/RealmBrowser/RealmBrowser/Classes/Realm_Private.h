@@ -16,15 +16,27 @@
 //
 ////////////////////////////////////////////////////////////////////////////
 
-#import "RLMTypeNode.h"
+#import <Realm/Realm.h>
 
-@class RLMArrayNode;
-@interface RLMObjectNode : RLMTypeNode
+@interface RLMRealm (Dynamic)
 
-@property (nonatomic) id<RLMRealmOutlineNode> childNode;
-@property (nonatomic) id<RLMRealmOutlineNode> parentNode;
++ (instancetype)realmWithPath:(NSString *)path
+                     readOnly:(BOOL)readonly
+                     inMemory:(BOOL)inMemory
+                      dynamic:(BOOL)dynamic
+                       schema:(RLMSchema *)customSchema
+                        error:(NSError **)outError;
 
-- (instancetype)initWithObject:(RLMObject *)object realm:(RLMRealm *)realm;
-- (RLMArrayNode *)displayChildArrayFromProperty:(RLMProperty *)property object:(RLMObject *)object;
+- (RLMResults *)allObjects:(NSString *)className;
+
+- (RLMResults *)objects:(NSString *)className where:(NSString *)predicateFormat, ...;
+
+- (RLMObject *)createObject:(NSString *)className withObject:(id)object;
+
+@end
+
+@interface RLMArray (Private)
+
+- (instancetype)initWithObjectClassName:(NSString *)objectClassName;
 
 @end

@@ -23,6 +23,7 @@
 #import "RLMMigration_Private.h"
 #import "RLMConstants.h"
 #import "RLMObjectStore.hpp"
+#import "RLMObjectSchema_Private.hpp"
 #import "RLMQueryUtil.hpp"
 #import "RLMUpdateChecker.hpp"
 #import "RLMUtil.hpp"
@@ -168,14 +169,17 @@ NSString * const c_defaultRealmFileName = @"default.realm";
 }
 
 + (void)initialize {
-    // set up global realm cache
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        RLMCheckForUpdates();
+    static bool initialized;
+    if (initialized) {
+        return;
+    }
+    initialized = true;
 
-        // initilize realm cache
-        clearRealmCache();
-    });
+    // set up global realm cache
+    RLMCheckForUpdates();
+
+    // initilize realm cache
+    clearRealmCache();
 }
 
 - (instancetype)initWithPath:(NSString *)path readOnly:(BOOL)readonly inMemory:(BOOL)inMemory error:(NSError **)error {
@@ -200,7 +204,6 @@ NSString * const c_defaultRealmFileName = @"default.realm";
                 SharedGroup::DurabilityLevel durability = inMemory ? SharedGroup::durability_MemOnly :
                                                                      SharedGroup::durability_Full;
                 _sharedGroup = make_unique<SharedGroup>(*_replication, durability);
-                _group = &const_cast<Group&>(_sharedGroup->begin_read());
             }
         }
         catch (File::PermissionDenied &ex) {
@@ -223,6 +226,13 @@ NSString * const c_defaultRealmFileName = @"default.realm";
         }
     }
     return self;
+}
+
+- (tightdb::Group *)getOrCreateGroup {
+    if (!_group) {
+        _group = &const_cast<Group&>(_sharedGroup->begin_read());
+    }
+    return _group;
 }
 
 + (NSString *)defaultRealmPath
@@ -372,9 +382,6 @@ NSString * const c_defaultRealmFileName = @"default.realm";
             // check cache for existing cached realms with the same path
             NSArray *realms = realmsAtPath(path);
             if (realms.count) {
-                // advance read in case another instance initialized the schema
-                LangBindHelper::advance_read(*realm->_sharedGroup, *realm->_writeLogs);
-
                 // if we have a cached realm on another thread, copy without a transaction
                 RLMRealmSetSchema(realm, [realms[0] schema], false);
             }
@@ -390,6 +397,9 @@ NSString * const c_defaultRealmFileName = @"default.realm";
 
                 RLMRealmCreateAccessors(realm.schema);
             }
+
+            // initializing the schema started a read transaction, so end it
+            [realm invalidate];
 
             // cache only realms using a shared schema
             cacheRealm(realm, path);
@@ -457,6 +467,9 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
             // announce the change after promoting
             bool announce = _sharedGroup->has_changed();
 
+            // begin the read transaction if needed
+            [self getOrCreateGroup];
+
             LangBindHelper::promote_to_write(*_sharedGroup, *_writeLogs);
 
             if (announce) {
@@ -488,7 +501,7 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
             // update state and make all objects in this realm read-only
             _inWriteTransaction = NO;
 
-            // notify other realm istances of changes
+            // notify other realm instances of changes
             NSArray *realms = realmsAtPath(_path);
             for (RLMRealm *realm in realms) {
                 if (![realm isEqual:self]) {
@@ -534,10 +547,23 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
     }
 }
 
+- (void)invalidate {
+    RLMCheckThread(self);
+    CheckReadWrite(self, @"Cannot invalidate a read-only realm");
+
+    _sharedGroup->end_read();
+    _group = nullptr;
+    for (RLMObjectSchema *objectSchema in _schema.objectSchema) {
+        objectSchema->_table.reset();
+    }
+}
+
 - (void)dealloc {
     if (_inWriteTransaction) {
-        [self commitWriteTransaction];
-        NSLog(@"A transaction was lacking explicit commit, but it has been auto committed.");
+        [self cancelWriteTransaction];
+        NSLog(@"WARNING: An RLMRealm instance was deallocated during a write transaction and all "
+              "pending changes have been rolled back. Make sure to retain a reference to the "
+              "RLMRealm for the duration of the write transaction.");
     }
 }
 
@@ -547,7 +573,9 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
     try {
         if (_sharedGroup->has_changed()) { // Throws
             if (_autorefresh) {
-                LangBindHelper::advance_read(*_sharedGroup, *_writeLogs);
+                if (_group) {
+                    LangBindHelper::advance_read(*_sharedGroup, *_writeLogs);
+                }
                 [self sendNotifications:RLMRealmDidChangeNotification];
             }
             else {
@@ -572,7 +600,13 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
     try {
         // advance transaction if database has changed
         if (_sharedGroup->has_changed()) { // Throws
-            LangBindHelper::advance_read(*_sharedGroup, *_writeLogs);
+            if (_group) {
+                LangBindHelper::advance_read(*_sharedGroup, *_writeLogs);
+            }
+            else {
+                // Create the read transaction
+                [self getOrCreateGroup];
+            }
             [self sendNotifications:RLMRealmDidChangeNotification];
             return YES;
         }
@@ -689,13 +723,18 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
         [migration migrateWithBlock:s_migrationBlock version:s_currentSchemaVersion];
     }
     else if (schemaVersion > s_currentSchemaVersion && schemaVersion != RLMNotVersioned) {
-        @throw [NSException exceptionWithName:@"RLMException"
-                                       reason:@"Realm version is higher than the current version provided to `setSchemaVersion:withMigrationBlock:`"
-                                     userInfo:@{@"path" : migration.realm.path}];
+        if (!s_migrationBlock) {
+            @throw [NSException exceptionWithName:@"RLMException"
+                                           reason:@"No migration block specified for a Realm with a schema version greater than 0. You must supply a valid schema version and migration block before accessing any Realm by calling `setSchemaVersion:withMigrationBlock:`"
+                                         userInfo:@{@"path" : migration.realm.path}];
+        }
+        else {
+            @throw [NSException exceptionWithName:@"RLMException"
+                                           reason:@"Realm version is higher than the current version provided to `setSchemaVersion:withMigrationBlock:`"
+                                         userInfo:@{@"path" : migration.realm.path}];
+        }
     }
 
-    // clear cache for future callers
-    clearRealmCache();
     return nil;
 }
 
@@ -707,7 +746,7 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
     BOOL success = YES;
 
     try {
-        _group->write(path.UTF8String);
+        self.group->write(path.UTF8String);
     }
     catch (File::PermissionDenied &ex) {
         success = NO;

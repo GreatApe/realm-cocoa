@@ -51,6 +51,9 @@
     NSMutableDictionary *map = [NSMutableDictionary dictionaryWithCapacity:properties.count];
     for (RLMProperty *prop in properties) {
         map[prop.name] = prop;
+        if (prop.isPrimary) {
+            self.primaryKeyProperty = prop;
+        }
     }
     _propertiesByName = map;
     _properties = properties;
@@ -117,6 +120,8 @@
         RLMReplaceSharedSchemaMethod(objectClass, schema);
         RLMReplaceClassNameMethod(objectClass, className);
     }
+
+    schema.defaultValues = RLMDefaultValuesForObjectSchema(schema);
 
     return schema;
 }
@@ -209,6 +214,7 @@
     schema.objectClass = RLMObject.class;
     schema.accessorClass = RLMObject.class;
     schema.standaloneClass = RLMObject.class;
+    schema.defaultValues = RLMDefaultValuesForObjectSchema(schema);
 
     return schema;
 }
@@ -223,6 +229,7 @@
     schema->_accessorClass = _accessorClass;
     schema->_standaloneClass = _standaloneClass;
     schema.primaryKeyProperty = _primaryKeyProperty;
+    schema->_defaultValues = _defaultValues;
     // _table not copied as it's tightdb::Group-specific
     return schema;
 }
@@ -240,6 +247,13 @@
         }
     }
     return YES;
+}
+
+- (tightdb::Table *)table {
+    if (!_table) {
+        _table = RLMTableForObjectClass(_realm, _className);
+    }
+    return _table.get();
 }
 
 @end
