@@ -21,6 +21,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		220369ED1A39C0FC00FC47B4 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 84E0F9671921F3B900D6CA14 /* MainMenu.xib */; };
+		220369EE1A39C1D500FC47B4 /* RLMDocument.xib in Resources */ = {isa = PBXBuildFile; fileRef = 84E0F9641921F3B900D6CA14 /* RLMDocument.xib */; };
 		22096B2719911F7300233D77 /* RLMBadgeTableCellView.m in Sources */ = {isa = PBXBuildFile; fileRef = 22096B2619911F7300233D77 /* RLMBadgeTableCellView.m */; };
 		220D382819B639D700F79496 /* RLMTestDataGenerator.m in Sources */ = {isa = PBXBuildFile; fileRef = 220D382719B639D700F79496 /* RLMTestDataGenerator.m */; };
 		221322FA19954AB100D25737 /* RLMImageTableCellView.m in Sources */ = {isa = PBXBuildFile; fileRef = 221322F919954AB100D25737 /* RLMImageTableCellView.m */; };
@@ -58,8 +60,6 @@
 		84E0F95A1921F3B900D6CA14 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 84E0F9581921F3B900D6CA14 /* InfoPlist.strings */; };
 		84E0F95C1921F3B900D6CA14 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 84E0F95B1921F3B900D6CA14 /* main.m */; };
 		84E0F9601921F3B900D6CA14 /* Credits.rtf in Resources */ = {isa = PBXBuildFile; fileRef = 84E0F95E1921F3B900D6CA14 /* Credits.rtf */; };
-		84E0F9661921F3B900D6CA14 /* RLMDocument.xib in Resources */ = {isa = PBXBuildFile; fileRef = 84E0F9641921F3B900D6CA14 /* RLMDocument.xib */; };
-		84E0F9691921F3B900D6CA14 /* MainMenu.xib in Resources */ = {isa = PBXBuildFile; fileRef = 84E0F9671921F3B900D6CA14 /* MainMenu.xib */; };
 		84E0F96B1921F3B900D6CA14 /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 84E0F96A1921F3B900D6CA14 /* Images.xcassets */; };
 		84E0F9721921F3B900D6CA14 /* XCTest.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84E0F9711921F3B900D6CA14 /* XCTest.framework */; };
 		84E0F9731921F3B900D6CA14 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84E0F94F1921F3B900D6CA14 /* Cocoa.framework */; };
@@ -555,8 +555,8 @@
 				84E0F96B1921F3B900D6CA14 /* Images.xcassets in Resources */,
 				84BCA6041951BD07008FC850 /* realm.icns in Resources */,
 				84E0F9601921F3B900D6CA14 /* Credits.rtf in Resources */,
-				84E0F9661921F3B900D6CA14 /* RLMDocument.xib in Resources */,
-				84E0F9691921F3B900D6CA14 /* MainMenu.xib in Resources */,
+				220369EE1A39C1D500FC47B4 /* RLMDocument.xib in Resources */,
+				220369ED1A39C0FC00FC47B4 /* MainMenu.xib in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

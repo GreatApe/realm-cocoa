@@ -46,15 +46,18 @@ static NSString * const kTableName = @"table";
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    self.array = [[DemoObject allObjects] sortedResultsUsingProperty:@"date" ascending:YES];
     [self setupUI];
 
     // Set realm notification block
     __weak typeof(self) weakSelf = self;
     self.notification = [RLMRealm.defaultRealm addNotificationBlock:^(NSString *note, RLMRealm *realm) {
-        [weakSelf.tableView reloadData];
+        [weakSelf reloadData];
     }];
-    [self.tableView reloadData];
+    [self reloadData];
+    
+    UITapGestureRecognizer *doubleTap = [[UITapGestureRecognizer alloc] initWithTarget:self action:@selector(reloadData)];
+    doubleTap.numberOfTapsRequired = 2;
+    [self.view addGestureRecognizer:doubleTap];
 }
 
 #pragma mark - UI
@@ -63,7 +66,7 @@ static NSString * const kTableName = @"table";
 {
     self.title = @"TableViewExample";
     self.navigationItem.leftBarButtonItem =
-        [[UIBarButtonItem alloc] initWithTitle:@"BG Add"
+        [[UIBarButtonItem alloc] initWithTitle:@"Go"
                                          style:UIBarButtonItemStylePlain
                                         target:self
                                         action:@selector(backgroundAdd)];
@@ -91,7 +94,7 @@ static NSString * const kTableName = @"table";
 
     DemoObject *object = self.array[indexPath.row];
     cell.textLabel.text = object.title;
-    cell.detailTextLabel.text = object.date.description;
+//    cell.detailTextLabel.text = object.date.description;
 
     return cell;
 }
@@ -109,6 +112,16 @@ static NSString * const kTableName = @"table";
 
 #pragma mark - Actions
 
+- (void)reloadData
+{
+//    self.array = [[DemoObject allObjects] sortedResultsUsingProperty:@"date" ascending:YES];
+
+    RLMResults *newArray = [DemoObject allObjects];
+
+    self.array = newArray;
+    [self.tableView reloadData];
+}
+
 - (void)backgroundAdd
 {
     dispatch_queue_t queue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
@@ -116,13 +129,22 @@ static NSString * const kTableName = @"table";
     dispatch_async(queue, ^{
         // Get new realm and table since we are in a new thread
         RLMRealm *realm = [RLMRealm defaultRealm];
-        [realm beginWriteTransaction];
-        for (NSInteger index = 0; index < 5; index++) {
-            // Add row via dictionary. Order is ignored.
-            [DemoObject createInRealm:realm withObject:@{@"title": [self randomString],
-                                                         @"date": [self randomDate]}];
+
+        RLMResults *res = [DemoObject allObjects];
+            
+        for (NSInteger index = 0; index < 33; index++) {
+            [NSThread sleepForTimeInterval:0.3];
+            
+            int i = rand() % res.count;
+            [realm beginWriteTransaction];
+
+            DemoObject *obj = res[i];
+            int digits = rand() % 7 + 1;
+            int maxnum = pow(10, digits);
+            obj.title = @(rand() % maxnum).stringValue;
+            
+            [realm commitWriteTransaction];
         }
-        [realm commitWriteTransaction];
     });
 }
 
@@ -138,7 +160,7 @@ static NSString * const kTableName = @"table";
 
 - (NSString *)randomString
 {
-    return [NSString stringWithFormat:@"Title %d", arc4random()];
+    return @"New";
 }
 
 - (NSDate *)randomDate

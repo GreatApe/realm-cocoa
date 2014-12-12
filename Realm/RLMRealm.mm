@@ -151,7 +151,6 @@ NSString * const c_defaultRealmFileName = @"default.realm";
     NSThread *_thread;
     NSMapTable *_notificationHandlers;
 
-    std::unique_ptr<LangBindHelper::TransactLogRegistry> _writeLogs;
     std::unique_ptr<Replication> _replication;
     std::unique_ptr<SharedGroup> _sharedGroup;
 
@@ -192,18 +191,40 @@ NSString * const c_defaultRealmFileName = @"default.realm";
         _readOnly = readonly;
         _inMemory = inMemory;
         _autorefresh = YES;
-
+        
         try {
             if (readonly) {
                 _readGroup = make_unique<Group>(path.UTF8String);
                 _group = _readGroup.get();
             }
             else {
-                _writeLogs.reset(tightdb::getWriteLogs(path.UTF8String));
                 _replication.reset(tightdb::makeWriteLogCollector(path.UTF8String));
                 SharedGroup::DurabilityLevel durability = inMemory ? SharedGroup::durability_MemOnly :
                                                                      SharedGroup::durability_Full;
                 _sharedGroup = make_unique<SharedGroup>(*_replication, durability);
+
+#if TARGET_OS_IPHONE
+                NSLog(@"Not setting up wait_for_change");
+#else
+                NSLog(@"Set up wait_for_change");
+                dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), ^{
+                    std::unique_ptr<SharedGroup> waitGroup = make_unique<SharedGroup>(path.UTF8String, durability);
+                    
+                    while (YES) {
+                        NSLog(@"waiting for change");
+                        
+                        waitGroup->begin_read();
+                        waitGroup->wait_for_change();
+                        waitGroup->end_read();
+                        
+                        NSLog(@"something changed");
+                        
+                        dispatch_async(dispatch_get_main_queue(), ^{
+                            [self sendNotifications:RLMRealmDidChangeNotification];
+                        });
+                    }
+                });
+#endif
             }
         }
         catch (File::PermissionDenied &ex) {
@@ -214,12 +235,6 @@ NSString * const c_defaultRealmFileName = @"default.realm";
         }
         catch (File::AccessError &ex) {
             *error = make_realm_error(RLMErrorFileAccessError, ex);
-        }
-        catch (SharedGroup::PresumablyStaleLockFile &ex) {
-            *error = make_realm_error(RLMErrorStaleLockFile, ex);
-        }
-        catch (SharedGroup::LockFileButNoData &ex) {
-            *error = make_realm_error(RLMErrorLockFileButNoData, ex);
         }
         catch (exception &ex) {
             *error = make_realm_error(RLMErrorFail, ex);
@@ -470,7 +485,7 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
             // begin the read transaction if needed
             [self getOrCreateGroup];
 
-            LangBindHelper::promote_to_write(*_sharedGroup, *_writeLogs);
+            LangBindHelper::promote_to_write(*_sharedGroup);
 
             if (announce) {
                 [self sendNotifications:RLMRealmDidChangeNotification];
@@ -574,7 +589,7 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
         if (_sharedGroup->has_changed()) { // Throws
             if (_autorefresh) {
                 if (_group) {
-                    LangBindHelper::advance_read(*_sharedGroup, *_writeLogs);
+                    LangBindHelper::advance_read(*_sharedGroup);
                 }
                 [self sendNotifications:RLMRealmDidChangeNotification];
             }
@@ -601,7 +616,7 @@ static void CheckReadWrite(RLMRealm *realm, NSString *msg=@"Cannot write to a re
         // advance transaction if database has changed
         if (_sharedGroup->has_changed()) { // Throws
             if (_group) {
-                LangBindHelper::advance_read(*_sharedGroup, *_writeLogs);
+                LangBindHelper::advance_read(*_sharedGroup);
             }
             else {
                 // Create the read transaction

@@ -37,6 +37,8 @@ NSString * const kRealmKeyOutlineWidthForRealm = @"OutlineWidthForRealm:%@";
 @property (atomic, weak) IBOutlet NSToolbarItem *lockRealmButton;
 @property (nonatomic, strong) IBOutlet NSSearchField *searchField;
 
+@property (nonatomic) RLMNotificationToken *token;
+
 @end
 
 @implementation RLMRealmBrowserWindowController {
@@ -69,6 +71,12 @@ NSString * const kRealmKeyOutlineWidthForRealm = @"OutlineWidthForRealm:%@";
     NSString *realmPath = self.modelDocument.presentedRealm.realm.path;
     [self setWindowFrameAutosaveName:[NSString stringWithFormat:kRealmKeyWindowFrameForRealm, realmPath]];
     [self.splitView setAutosaveName:[NSString stringWithFormat:kRealmKeyOutlineWidthForRealm, realmPath]];
+    
+    self.token = [self.modelDocument.presentedRealm.realm addNotificationBlock:^(NSString *notification, RLMRealm *realm) {
+        
+        [realm refresh];
+        [self reloadAfterEdit];
+    }];
     
     [self reloadAfterEdit];
     self.window.alphaValue = 1.0;

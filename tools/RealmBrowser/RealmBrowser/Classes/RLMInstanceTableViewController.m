@@ -55,6 +55,7 @@ typedef NS_ENUM(int32_t, RLMUpdateType) {
     BOOL awake;
     BOOL linkCursorDisplaying;
     NSDateFormatter *dateFormatter;
+    
     NSNumberFormatter *numberFormatter;
     NSMutableDictionary *autofittedColumns;
     RLMDescriptions *realmDescriptions;
@@ -90,6 +91,8 @@ typedef NS_ENUM(int32_t, RLMUpdateType) {
     [self.tableView registerForDraggedTypes:@[kRLMObjectType]];
     [self.tableView setDraggingSourceOperationMask:NSDragOperationEvery forLocal:YES];
 
+    NSLog(@"setting up table view: %@", self.tableView);
+    
     awake = YES;
 }
 
@@ -151,6 +154,8 @@ typedef NS_ENUM(int32_t, RLMUpdateType) {
 
 -(void)textFieldCancelledEditing:(RLMTextField *)textField
 {
+    NSLog(@"cancelled: %@", self.tableView);
+
     [self.tableView reloadData];
 }
 
